@@ -1,4 +1,4 @@
-import { h, store, dayKey } from '../lib/util.js';
+import { h, store, dayKey, fill, add } from '../lib/util.js';
 import { ALL_TOPICS } from '../data/syllabus.js';
 import { topicStats, topicOfItem, practiceLink, readiness, streakDays, minutesOn, activityByDay, sourceItems } from '../lib/mastery.js';
 import { dueItems } from './review.js';
@@ -109,7 +109,7 @@ export function render(root) {
 
   const nextTask = plan.tasks.find((t) => taskProgress(t) < t.target);
 
-  root.append(...[
+  add(root, ...[
     h('h1', {}, `Today · ${new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}`),
     h('p', { class: 'sub' }, 'Your plan is generated each morning from your weakest syllabus topics, your review queue and how close your interview is. Tasks tick off automatically as you practise.'),
     left !== null ? h('div', { class: 'card', style: { borderColor: left <= 7 ? 'var(--warn)' : 'var(--border)' } },
@@ -139,7 +139,7 @@ export function render(root) {
     due ? h('p', { class: 'muted small' }, `${due} item(s) are due for review in total.`) : null,
   ].filter(Boolean));
 
-  function rerender() { root.replaceChildren(); render(root); }
+  function rerender() { fill(root); render(root); }
 }
 
 function stat(label, value, extra) {

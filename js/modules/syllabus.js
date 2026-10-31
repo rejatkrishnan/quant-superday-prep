@@ -1,4 +1,4 @@
-import { h } from '../lib/util.js';
+import { h, add } from '../lib/util.js';
 import { SYLLABUS } from '../data/syllabus.js';
 import { topicStats, readiness, practiceLink } from '../lib/mastery.js';
 
@@ -10,7 +10,7 @@ export function render(root) {
   const counts = { 'Not started': 0, Learning: 0, Reviewing: 0, Mastered: 0 };
   all.forEach((t) => counts[t.status]++);
 
-  root.append(
+  add(root, 
     h('h1', {}, 'Syllabus & Coverage'),
     h('p', { class: 'sub' }, 'Everything a quant research interview can test, mapped to practice material in this app. Mastery comes from spaced-repetition performance: items you answer correctly over increasing gaps count more than items you saw once.'),
     h('div', { class: 'grid cols-4' },

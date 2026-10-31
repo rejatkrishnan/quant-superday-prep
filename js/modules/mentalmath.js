@@ -1,4 +1,4 @@
-import { h, randInt, choice, store, formatTime, sparkline } from '../lib/util.js';
+import { h, randInt, choice, store, formatTime, sparkline, fill, add } from '../lib/util.js';
 
 const OPS = {
   add: 'Addition', sub: 'Subtraction', mul: 'Multiplication', div: 'Division',
@@ -58,14 +58,14 @@ export function render(root) {
 
   const settings = h('div', { class: 'card' });
   const arena = h('div');
-  root.append(
+  add(root, 
     h('h1', {}, 'Mental Math Sprint'),
     h('p', { class: 'sub' }, 'Speed arithmetic like the Zetamac / Optiver-style tests used in trading & research screens. Answers auto-submit when correct — just keep typing.'),
     settings, arena,
   );
 
   function drawSettings() {
-    settings.replaceChildren(
+    fill(settings, 
       h('h3', { style: { marginTop: 0 } }, 'Preset'),
       h('div', { class: 'row' }, Object.entries(PRESETS).map(([k, p]) =>
         h('button', { class: 'chip' + (sameSet(ops, p.ops) ? ' on' : ''), onclick: () => { ops = new Set(p.ops); drawSettings(); } }, p.label))),
@@ -86,7 +86,7 @@ export function render(root) {
     const key = modeKey();
     const runs = store.state.mental.filter((r) => r.key === key);
     const best = runs.reduce((m, r) => Math.max(m, r.score), 0);
-    arena.replaceChildren(h('div', { class: 'card' },
+    fill(arena, h('div', { class: 'card' },
       h('h3', { style: { marginTop: 0 } }, 'History for this configuration'),
       runs.length
         ? h('div', {},
@@ -132,7 +132,7 @@ export function render(root) {
       input.value = '';
     }
 
-    arena.replaceChildren(h('div', { class: 'card' },
+    fill(arena, h('div', { class: 'card' },
       h('div', { class: 'mm-top' }, clock, scoreEl), probEl, h('div', { class: 'mm-center' }, input), msg,
       h('div', { class: 'mm-center', style: { marginTop: '14px' } }, h('button', { class: 'ghost', onclick: () => finish(true) }, 'Quit'))));
     input.focus();
@@ -149,7 +149,7 @@ export function render(root) {
       if (!aborted) store.recordMental({ key: modeKey(), score, skipped, duration });
       const runs = store.state.mental.filter((r) => r.key === modeKey());
       const best = Math.max(0, ...runs.map((r) => r.score));
-      arena.replaceChildren(h('div', { class: 'card' },
+      fill(arena, h('div', { class: 'card' },
         h('h2', { style: { marginTop: 0 } }, aborted ? 'Sprint aborted' : `Score: ${score}`),
         !aborted && score >= best && runs.length > 1 ? h('div', { class: 'feedback correct' }, '🎉 New personal best!') : null,
         h('p', { class: 'muted' }, `${(score / (duration / 60)).toFixed(1)} correct per minute · ${skipped} skipped`),

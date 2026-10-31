@@ -1,17 +1,17 @@
-import { h, randInt, shuffle, store, fmt } from '../lib/util.js';
+import { h, randInt, shuffle, store, fmt, fill, add, addFirst } from '../lib/util.js';
 import { FERMI } from '../data/fermi.js';
 
 export function render(root) {
   let game = 'fermi';
   const tabs = h('div', { class: 'row' });
   const body = h('div');
-  root.append(
+  add(root, 
     h('h1', {}, 'Market Making'),
     h('p', { class: 'sub' }, 'Trading-style interviews ask you to "make a market": quote a bid and an ask. The interviewer trades against you when you are wrong, then you update. Practice quoting tight, honest markets and adjusting to flow.'),
     h('div', { class: 'card' }, tabs), body,
   );
   function drawTabs() {
-    tabs.replaceChildren(
+    fill(tabs, 
       h('button', { class: 'chip' + (game === 'fermi' ? ' on' : ''), onclick: () => { game = 'fermi'; drawTabs(); fermiGame(body); } }, '🌍 Estimation markets'),
       h('button', { class: 'chip' + (game === 'dice' ? ' on' : ''), onclick: () => { game = 'dice'; drawTabs(); diceGame(body); } }, '🎲 Dice-sum market'),
     );
@@ -29,10 +29,10 @@ function fermiGame(body) {
   const settings = h('div', { class: 'card' });
   const card = h('div', { class: 'card' });
   const hist = h('div', { class: 'card' });
-  body.replaceChildren(settings, card, hist);
+  fill(body, settings, card, hist);
 
   function drawSettings() {
-    settings.replaceChildren(
+    fill(settings, 
       h('div', { class: 'row' }, h('span', { class: 'muted' }, 'Max width (ask ÷ bid):'),
         Object.entries(WIDTHS).map(([k, v]) => h('button', { class: 'chip' + (widthKey === k ? ' on' : ''), onclick: () => { widthKey = k; drawSettings(); } }, `${k} (≤ ${v}×)`))),
       h('p', { class: 'muted small', style: { marginBottom: 0 } },
@@ -44,7 +44,7 @@ function fermiGame(body) {
     const rows = store.state.markets.filter((m) => m.game === 'fermi').slice(-8).reverse();
     const all = store.state.markets.filter((m) => m.game === 'fermi');
     const avg = all.length ? all.reduce((s, m) => s + m.pnl, 0) / all.length : 0;
-    hist.replaceChildren(h('h3', { style: { marginTop: 0 } }, `History (${all.length} markets · avg P&L ${avg.toFixed(1)}%)`),
+    fill(hist, h('h3', { style: { marginTop: 0 } }, `History (${all.length} markets · avg P&L ${avg.toFixed(1)}%)`),
       rows.length ? h('table', {}, h('tr', {}, h('th', {}, 'Question'), h('th', {}, 'Truth'), h('th', {}, 'R1'), h('th', {}, 'R2'), h('th', {}, 'P&L')),
         rows.map((m) => h('tr', {}, h('td', {}, m.q), h('td', {}, fmt(m.truth)), h('td', {}, m.r1), h('td', {}, m.r2),
           h('td', { style: { color: m.pnl >= 0 ? 'var(--good)' : 'var(--bad)' } }, `${m.pnl.toFixed(1)}%`))))
@@ -66,15 +66,15 @@ function fermiGame(body) {
 
     function submit() {
       const b = parseFloat(bid.value.replace(/,/g, '')), a = parseFloat(ask.value.replace(/,/g, ''));
-      if (!(b > 0 && a > 0)) return log.append(h('div', { class: 'feedback info' }, 'Enter positive numbers for bid and ask.'));
-      if (a <= b) return log.append(h('div', { class: 'feedback info' }, 'Ask must be above bid.'));
-      if (a / b > maxRatio + 1e-9) return log.append(h('div', { class: 'feedback close' }, `Too wide: ask/bid = ${(a / b).toFixed(2)} > ${maxRatio}. Tighten up!`));
+      if (!(b > 0 && a > 0)) return add(log, h('div', { class: 'feedback info' }, 'Enter positive numbers for bid and ask.'));
+      if (a <= b) return add(log, h('div', { class: 'feedback info' }, 'Ask must be above bid.'));
+      if (a / b > maxRatio + 1e-9) return add(log, h('div', { class: 'feedback close' }, `Too wide: ask/bid = ${(a / b).toFixed(2)} > ${maxRatio}. Tighten up!`));
       const mid = (a + b) / 2;
       const buy = item.v > mid;
       const pnl = buy ? ((a - item.v) / item.v) * 100 : ((item.v - b) / item.v) * 100;
       quotes.push({ b, a, buy, pnl });
       if (round === 1) {
-        log.append(h('div', { class: 'feedback info' }, `${fmt(b)} @ ${fmt(a)} — interviewer: "${buy ? `I buy at ${fmt(a)}` : `I sell at ${fmt(b)}`}." Now update your market.`));
+        add(log, h('div', { class: 'feedback info' }, `${fmt(b)} @ ${fmt(a)} — interviewer: "${buy ? `I buy at ${fmt(a)}` : `I sell at ${fmt(b)}`}." Now update your market.`));
         round = 2;
         roundLabel.textContent = 'Round 2 (after the trade)';
         bid.value = ''; ask.value = '';
@@ -82,7 +82,7 @@ function fermiGame(body) {
       } else {
         const total = quotes[0].pnl + quotes[1].pnl;
         const contained = quotes.map((q) => q.b <= item.v && item.v <= q.a);
-        log.append(h('div', { class: 'feedback ' + (total >= 0 ? 'correct' : 'wrong') },
+        add(log, h('div', { class: 'feedback ' + (total >= 0 ? 'correct' : 'wrong') },
           h('div', {}, `${fmt(b)} @ ${fmt(a)} — interviewer: "${buy ? `I buy at ${fmt(a)}` : `I sell at ${fmt(b)}`}."`),
           h('div', { style: { fontSize: '18px', margin: '6px 0' } }, 'True value: ', h('b', {}, fmt(item.v))),
           rangeViz(quotes, item.v),
@@ -99,7 +99,7 @@ function fermiGame(body) {
       }
     }
 
-    card.replaceChildren(h('div', { class: 'question' }, '📣 Make me a market on: ', h('b', {}, item.q)),
+    fill(card, h('div', { class: 'question' }, '📣 Make me a market on: ', h('b', {}, item.q)),
       h('div', { class: 'row' }, roundLabel),
       h('div', { class: 'row', style: { marginTop: '8px' } }, bid, h('span', {}, '@'), ask, btn), log);
     bid.focus();
@@ -118,7 +118,7 @@ function rangeViz(quotes, truth) {
     const viz = h('div', { class: 'range-viz', title: `Round ${i + 1}` },
       h('div', { class: 'band', style: { left: x(q.b), width: `calc(${x(q.a)} - ${x(q.b)})` } }),
       h('div', { class: 'truth', style: { left: x(truth) } }));
-    wrap.append(h('div', { class: 'muted small' }, `Round ${i + 1} (green = truth, log scale)`), viz);
+    add(wrap, h('div', { class: 'muted small' }, `Round ${i + 1} (green = truth, log scale)`), viz);
   });
   return wrap;
 }
@@ -129,10 +129,10 @@ function diceGame(body) {
   const settings = h('div', { class: 'card' });
   const card = h('div', { class: 'card' });
   const hist = h('div', { class: 'card' });
-  body.replaceChildren(settings, card, hist);
+  fill(body, settings, card, hist);
 
   function drawSettings() {
-    settings.replaceChildren(
+    fill(settings, 
       h('div', { class: 'row' }, h('span', { class: 'muted' }, 'Dice:'),
         [2, 3, 4, 5].map((n) => h('button', { class: 'chip' + (nDice === n ? ' on' : ''), onclick: () => { nDice = n; drawSettings(); play(); } }, String(n))),
         h('span', { class: 'muted', style: { marginLeft: '12px' } }, 'Max width:'),
@@ -146,7 +146,7 @@ function diceGame(body) {
   function drawHistory() {
     const all = store.state.markets.filter((m) => m.game === 'dice');
     const avg = all.length ? all.reduce((s, m) => s + m.exp, 0) / all.length : 0;
-    hist.replaceChildren(h('h3', { style: { marginTop: 0 } }, 'Dice-market history'),
+    fill(hist, h('h3', { style: { marginTop: 0 } }, 'Dice-market history'),
       all.length ? h('p', {}, `${all.length} games · average expected P&L per game: `, h('b', {}, avg.toFixed(2)),
         ' (0 is perfect — you can\'t make money against a perfectly informed trader, only avoid losing it).')
         : h('p', { class: 'muted' }, 'No games yet.'));
@@ -165,21 +165,21 @@ function diceGame(body) {
     const posEl = h('span', { class: 'muted' });
 
     const drawDice = () => {
-      diceRow.replaceChildren(...dice.map((d, i) => h('div', { class: 'die ' + (i < revealed ? 'shown' : 'hidden') }, i < revealed ? String(d) : '?')));
+      fill(diceRow, ...dice.map((d, i) => h('div', { class: 'die ' + (i < revealed ? 'shown' : 'hidden') }, i < revealed ? String(d) : '?')));
       const pos = trades.reduce((s, t) => s + t.side, 0);
       posEl.textContent = `Position: ${pos > 0 ? '+' : ''}${pos} · expected P&L so far: ${expPnl.toFixed(2)}`;
     };
 
     function submit() {
       const b = parseFloat(bid.value), a = parseFloat(ask.value);
-      if (!isFinite(b) || !isFinite(a) || a < b) return log.prepend(h('div', { class: 'feedback info' }, 'Enter a bid ≤ ask.'));
-      if (a - b > maxWidth + 1e-9) return log.prepend(h('div', { class: 'feedback close' }, `Too wide (${a - b} > ${maxWidth}).`));
+      if (!isFinite(b) || !isFinite(a) || a < b) return addFirst(log, h('div', { class: 'feedback info' }, 'Enter a bid ≤ ask.'));
+      if (a - b > maxWidth + 1e-9) return addFirst(log, h('div', { class: 'feedback close' }, `Too wide (${a - b} > ${maxWidth}).`));
       const fv = dice.slice(0, revealed).reduce((s, d) => s + d, 0) + 3.5 * (nDice - revealed);
       let msg, cls = 'info';
       if (fv > a + 1e-9) { trades.push({ side: -1, price: a }); expPnl += a - fv; msg = `Counterparty BUYS 1 at ${a} (fair value was ${fv}). Expected loss ${(fv - a).toFixed(2)}.`; cls = 'wrong'; }
       else if (fv < b - 1e-9) { trades.push({ side: +1, price: b }); expPnl += fv - b; msg = `Counterparty SELLS 1 at ${b} (fair value was ${fv}). Expected loss ${(b - fv).toFixed(2)}.`; cls = 'wrong'; }
       else { msg = `No trade — fair value ${fv} is inside your ${b} @ ${a}. 👍`; cls = 'correct'; }
-      log.prepend(h('div', { class: 'feedback ' + cls }, msg));
+      addFirst(log, h('div', { class: 'feedback ' + cls }, msg));
       if (revealed < nDice) {
         revealed++;
         drawDice();
@@ -193,7 +193,7 @@ function diceGame(body) {
       const sum = dice.reduce((s, d) => s + d, 0);
       const realised = trades.reduce((s, t) => s + t.side * (sum - t.price), 0);
       store.recordMarket({ game: 'dice', n: nDice, exp: expPnl, realised });
-      log.prepend(h('div', { class: 'feedback ' + (expPnl >= -1e-9 ? 'correct' : 'close') },
+      addFirst(log, h('div', { class: 'feedback ' + (expPnl >= -1e-9 ? 'correct' : 'close') },
         h('b', {}, `All dice revealed: sum = ${sum}. `),
         h('div', {}, `Expected P&L: ${expPnl.toFixed(2)} · Realised P&L at settlement: ${realised.toFixed(2)}`),
         h('div', { class: 'muted small' }, 'Fair value of the sum = revealed total + 3.5 × hidden dice. Your mid should track it after every reveal.')));
@@ -203,7 +203,7 @@ function diceGame(body) {
       drawHistory();
     }
 
-    card.replaceChildren(h('div', { class: 'question' }, `📣 Make me a market on the sum of ${nDice} dice.`), diceRow, posEl,
+    fill(card, h('div', { class: 'question' }, `📣 Make me a market on the sum of ${nDice} dice.`), diceRow, posEl,
       h('div', { class: 'row', style: { marginTop: '12px' } }, bid, h('span', {}, '@'), ask, btn), log);
     drawDice();
     bid.focus();

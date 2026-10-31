@@ -1,4 +1,4 @@
-import { h, store } from '../lib/util.js';
+import { h, store, fill, add, addFirst } from '../lib/util.js';
 import { PROB_QUESTIONS } from '../data/probability.js';
 import { BRAINTEASERS } from '../data/brainteasers.js';
 import { CONCEPTS } from '../data/concepts.js';
@@ -33,7 +33,7 @@ export function render(root) {
   const total = queue.length;
   let done = 0, ok = 0;
 
-  root.append(
+  add(root, 
     h('h1', {}, 'Review'),
     h('p', { class: 'sub' }, 'Everything due for spaced repetition — probability & math questions, brainteasers and concept cards — in one queue. Missed items come back immediately; correct ones return after 1 → 3 → 7 → 16 → 35 days.'),
     head, card,
@@ -42,7 +42,7 @@ export function render(root) {
   function drawHead() {
     const counts = {};
     queue.forEach((q) => { counts[q.m] = (counts[q.m] || 0) + 1; });
-    head.replaceChildren(h('div', { class: 'row' },
+    fill(head, h('div', { class: 'row' },
       h('b', {}, `${done}/${total} reviewed`), h('span', { class: 'muted' }, `· ${ok} correct`),
       h('span', { class: 'spacer' }),
       ...Object.entries(counts).map(([m, n]) => h('span', { class: 'badge' }, `${m}: ${n} left`))),
@@ -54,7 +54,7 @@ export function render(root) {
     const it = queue.shift();
     if (!it) {
       const upcoming = Object.values(store.state.review).filter((r) => r.due > Date.now() && r.due < Date.now() + 864e5).length;
-      card.replaceChildren(h('h2', { style: { marginTop: 0 } }, total ? '✅ Review complete!' : '🎉 Nothing due right now'),
+      fill(card, h('h2', { style: { marginTop: 0 } }, total ? '✅ Review complete!' : '🎉 Nothing due right now'),
         h('p', { class: 'muted' }, `${upcoming} item(s) become due in the next 24 hours. New material is in the Today plan.`),
         h('a', { class: 'btn', href: '#/' }, '← Back to Today'));
       return;
@@ -65,7 +65,7 @@ export function render(root) {
     if (it.m === 'probability') showQuestion(card, it.item, onResult, next, { module: 'probability', extra });
     else if (it.m === 'brainteasers') showTeaser(card, it.item, onResult, next, { extra });
     else showConcept(card, it.item, onResult, next, { extra });
-    if (topic) card.prepend(h('div', { class: 'muted small', style: { marginBottom: '6px' } }, `🔁 Review · ${topic.section} › ${topic.name}${it.r.missed ? ' · previously missed' : ''}`));
+    if (topic) addFirst(card, h('div', { class: 'muted small', style: { marginBottom: '6px' } }, `🔁 Review · ${topic.section} › ${topic.name}${it.r.missed ? ' · previously missed' : ''}`));
   }
 
   next();

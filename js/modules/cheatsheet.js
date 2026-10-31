@@ -1,4 +1,4 @@
-import { h } from '../lib/util.js';
+import { h, add } from '../lib/util.js';
 
 const HTML = String.raw`
 <h2>Numbers to know cold</h2>
@@ -98,6 +98,6 @@ const HTML = String.raw`
 `;
 
 export function render(root) {
-  root.append(h('h1', {}, 'Cheat Sheet'), h('p', { class: 'sub' }, 'The formulas, facts and idioms that come up again and again. Read it the night before.'),
+  add(root, h('h1', {}, 'Cheat Sheet'), h('p', { class: 'sub' }, 'The formulas, facts and idioms that come up again and again. Read it the night before.'),
     h('div', { class: 'card cheat', html: HTML }));
 }

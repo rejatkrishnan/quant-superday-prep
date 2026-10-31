@@ -1,4 +1,4 @@
-import { h, shuffle, store, getParams, formatTime } from '../lib/util.js';
+import { h, shuffle, store, getParams, formatTime, fill, add } from '../lib/util.js';
 import { CONCEPTS } from '../data/concepts.js';
 
 const TOPICS = [...new Set(CONCEPTS.map((c) => c.topic))];
@@ -12,7 +12,7 @@ export function render(root) {
   const controls = h('div', { class: 'card' });
   const card = h('div', { class: 'card' });
   const list = h('div', { class: 'card' });
-  root.append(
+  add(root, 
     h('h1', {}, 'Concepts & Theory'),
     h('p', { class: 'sub' }, `${CONCEPTS.length} "explain this" questions covering stochastic processes, inference, regression, linear algebra, optimisation, ML, time series, finance, Python, and research/behavioral. Answer out loud or in writing before revealing, then grade yourself honestly. Cards come back on a spaced-repetition schedule.`),
     controls, card, list,
@@ -22,7 +22,7 @@ export function render(root) {
     const due = store.dueReview('concepts').length;
     const pool = CONCEPTS.filter((c) => topic === 'All' || c.topic === topic);
     const seen = pool.filter((c) => store.seen('concepts', c.id)).length;
-    controls.replaceChildren(
+    fill(controls, 
       h('div', { class: 'row' }, h('span', { class: 'muted' }, 'Mode:'),
         [['learn', 'Learn (new first)'], ['due', `Review due (${due})`]].map(([k, l]) =>
           h('button', { class: 'chip' + (mode === k ? ' on' : ''), onclick: () => { mode = k; rebuild(); } }, l)),
@@ -46,7 +46,7 @@ export function render(root) {
   }
 
   function drawList(pool) {
-    list.replaceChildren(h('h3', { style: { marginTop: 0 } }, 'All cards in this set'),
+    fill(list, h('h3', { style: { marginTop: 0 } }, 'All cards in this set'),
       h('table', {}, h('tr', {}, h('th', {}, 'Question'), h('th', {}, 'Topic'), h('th', {}, 'Status')),
         pool.map((c) => {
           const r = store.reviewState('concepts', c.id);
@@ -60,7 +60,7 @@ export function render(root) {
   function next() {
     const c = queue.shift();
     if (!c) {
-      card.replaceChildren(h('p', {}, mode === 'due' ? '🎉 No cards due. Come back tomorrow — or switch to Learn mode.' : 'You have been through every card in this set.'),
+      fill(card, h('p', {}, mode === 'due' ? '🎉 No cards due. Come back tomorrow — or switch to Learn mode.' : 'You have been through every card in this set.'),
         h('button', { class: 'primary', onclick: rebuild }, 'Start over'));
       return;
     }
@@ -95,7 +95,7 @@ export function showConcept(card, c, onResult, onNext, opts = {}) {
     onNext();
   };
   const reveal = () => {
-    fb.replaceChildren(h('div', { class: 'feedback info' },
+    fill(fb, h('div', { class: 'feedback info' },
       h('b', {}, 'Key points'), h('div', { class: 'rich', html: c.a }),
       c.f?.length ? h('div', { style: { marginTop: '8px' } }, h('b', {}, 'Likely follow-ups'), h('ul', {}, c.f.map((x) => h('li', { html: x })))) : null,
       h('div', { class: 'row', style: { marginTop: '10px' } }, h('span', { class: 'muted' }, 'How did you do?'),
@@ -106,7 +106,7 @@ export function showConcept(card, c, onResult, onNext, opts = {}) {
   };
   const revealBtn = h('button', { class: 'primary', onclick: reveal }, 'Reveal key points');
 
-  card.replaceChildren(
+  fill(card, 
     h('div', { class: 'row' }, h('span', { class: 'badge' }, c.topic), h('span', { class: 'badge d' + c.diff }, ['', 'easy', 'medium', 'hard'][c.diff]),
       h('span', { class: 'spacer' }), clock),
     h('div', { class: 'question' }, c.q), notes,

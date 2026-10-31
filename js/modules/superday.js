@@ -1,4 +1,4 @@
-import { h, shuffle, store, gradeNumeric, formatTime, richText, fmt } from '../lib/util.js';
+import { h, shuffle, store, gradeNumeric, formatTime, richText, fmt, fill, add } from '../lib/util.js';
 import { PROB_QUESTIONS } from '../data/probability.js';
 import { BRAINTEASERS } from '../data/brainteasers.js';
 import { makeGenerated } from './probability.js';
@@ -38,7 +38,7 @@ function buildItems(f) {
 export function render(root) {
   let timer = null;
   const body = h('div');
-  root.append(
+  add(root, 
     h('h1', {}, 'Written Test (Online Assessment)'),
     h('p', { class: 'sub' }, 'A timed, mixed written exam across mental math, sequences, probability and brainteasers — like the online assessments many firms send before interviews. No hints and no feedback until the end. Skipped questions count as wrong. For spoken, interviewer-style rounds use Mock Interview.'),
     body,
@@ -46,7 +46,7 @@ export function render(root) {
 
   function lobby() {
     const mocks = store.state.mocks.slice(-10).reverse();
-    body.replaceChildren(
+    fill(body, 
       h('div', { class: 'grid cols-3' }, Object.entries(FORMATS).map(([k, f]) =>
         h('div', { class: 'card tile', onclick: () => start(f) },
           h('div', { class: 'ico' }, k === 'quick' ? '⏱️' : k === 'full' ? '🏁' : '🎲'),
@@ -76,7 +76,7 @@ export function render(root) {
       const input = h('input', { type: 'text', class: 'answer', value: answers[i], placeholder: 'answer', autocomplete: 'off' });
       input.addEventListener('input', () => { answers[i] = input.value; drawNav(); });
       input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { if (i < items.length - 1) show(i + 1); else confirmFinish(); } });
-      qWrap.replaceChildren(
+      fill(qWrap, 
         h('div', { class: 'row' }, h('span', { class: 'badge' }, it.section), h('span', { class: 'muted small' }, `Question ${i + 1} of ${items.length}`)),
         h('div', { class: 'question' }, it.q),
         h('div', { class: 'row' }, input,
@@ -88,7 +88,7 @@ export function render(root) {
     }
     function drawNav() {
       progress.textContent = `${answers.filter((a) => a.trim()).length}/${items.length} answered`;
-      nav.replaceChildren(...items.map((_, k) => h('button', {
+      fill(nav, ...items.map((_, k) => h('button', {
         class: 'chip' + (k === idx ? ' on' : ''), style: answers[k].trim() ? { borderColor: 'var(--good)' } : {}, onclick: () => show(k),
       }, String(k + 1))));
     }
@@ -105,7 +105,7 @@ export function render(root) {
       const correct = graded.filter((g) => g.ok).length;
       store.recordMock({ label: f.label, correct, total: items.length, secs });
       const sections = [...new Set(graded.map((g) => g.section))];
-      body.replaceChildren(
+      fill(body, 
         h('div', { class: 'card' },
           h('h2', { style: { marginTop: 0 } }, `Score: ${correct}/${items.length} (${Math.round((100 * correct) / items.length)}%)`),
           h('p', { class: 'muted' }, `Time used: ${formatTime(secs)} of ${f.minutes}:00`),
@@ -125,7 +125,7 @@ export function render(root) {
       );
     }
 
-    body.replaceChildren(h('div', { class: 'card' },
+    fill(body, h('div', { class: 'card' },
       h('div', { class: 'row' }, h('span', {}, '⏱ ', clock), h('span', { class: 'spacer' }), progress,
         h('button', { class: 'ghost', onclick: confirmFinish }, 'Submit exam')),
       h('hr', { style: { border: 0, borderTop: '1px solid var(--border)', margin: '12px 0' } }),

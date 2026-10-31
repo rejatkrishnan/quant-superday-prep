@@ -1,4 +1,4 @@
-import { h, randInt, choice, shuffle, comb, fracStr, fmt, store, gradeNumeric, richText, getParams } from '../lib/util.js';
+import { h, randInt, choice, shuffle, comb, fracStr, fmt, store, gradeNumeric, richText, getParams, fill, add } from '../lib/util.js';
 import { PROB_QUESTIONS } from '../data/probability.js';
 
 // ---------- Randomised generators (infinite practice) ----------
@@ -81,7 +81,7 @@ export function render(root) {
 
   const controls = h('div', { class: 'card' });
   const card = h('div', { class: 'card' });
-  root.append(
+  add(root, 
     h('h1', {}, 'Probability, Statistics & Math'),
     h('p', { class: 'sub' }, `${PROB_QUESTIONS.length} curated interview questions (probability, EV, Bayes, combinatorics, stochastic processes, statistics, linear algebra, calculus, pricing) + unlimited randomised problems. Answers accept fractions and expressions: 1/6, 0.1667, 16.67%, 1-(5/6)^4, sqrt(2/pi).`),
     controls, card,
@@ -90,7 +90,7 @@ export function render(root) {
   function drawControls() {
     const due = store.dueReview('probability').length;
     const seen = PROB_QUESTIONS.filter((q) => store.seen('probability', q.id)).length;
-    controls.replaceChildren(
+    fill(controls, 
       h('div', { class: 'row' },
         h('span', { class: 'muted' }, 'Mode:'),
         [['bank', 'Question bank'], ['review', `Review due (${due})`], ['gen', 'Infinite random']].map(([k, l]) =>
@@ -125,7 +125,7 @@ export function render(root) {
     if (mode === 'gen') q = makeGenerated();
     else q = queue.shift();
     if (!q) {
-      card.replaceChildren(h('p', {}, mode === 'review' ? '🎉 Nothing due for review. Questions come back here on a spaced-repetition schedule.' : 'You\'ve gone through every question for this filter.'),
+      fill(card, h('p', {}, mode === 'review' ? '🎉 Nothing due for review. Questions come back here on a spaced-repetition schedule.' : 'You\'ve gone through every question for this filter.'),
         h('button', { class: 'primary', onclick: rebuild }, 'Start over'));
       return;
     }
@@ -147,25 +147,25 @@ export function showQuestion(card, q, onResult, onNext, { module = 'probability'
     done = true;
     store.recordAttempt(module, q.id, ok, { ms: Date.now() - t0, hint: usedHint, ...extra });
     onResult?.(ok);
-    fb.replaceChildren(h('div', { class: 'feedback ' + verdict },
+    fill(fb, h('div', { class: 'feedback ' + verdict },
       h('b', {}, verdict === 'correct' ? `✓ Correct (${((Date.now() - t0) / 1000).toFixed(0)}s)` : verdict === 'info' ? 'Solution' : `✗ Not quite — answer ≈ ${fmt(q.ans)}`),
       richText(q.sol), h('div', { class: 'muted small', style: { marginTop: '6px' } }, 'Press Enter for the next question.')));
   };
   const submit = () => {
     if (done) return onNext();
     const g = gradeNumeric(input.value, q.ans, q.tol ?? 0.005);
-    if (g === 'invalid') return fb.replaceChildren(h('div', { class: 'feedback info' }, 'Could not parse that. Try a number, fraction, or expression like 1-(5/6)^4.'));
-    if (g === 'close') return fb.replaceChildren(h('div', { class: 'feedback close' }, 'Close! Give a bit more precision (or an exact fraction).'));
+    if (g === 'invalid') return fill(fb, h('div', { class: 'feedback info' }, 'Could not parse that. Try a number, fraction, or expression like 1-(5/6)^4.'));
+    if (g === 'close') return fill(fb, h('div', { class: 'feedback close' }, 'Close! Give a bit more precision (or an exact fraction).'));
     finish(g === 'correct', g);
   };
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
 
-  card.replaceChildren(
+  fill(card, 
     h('div', { class: 'row' }, h('span', { class: 'badge' }, q.topic), h('span', { class: 'badge d' + q.diff }, ['', 'easy', 'medium', 'hard'][q.diff]),
       String(q.id).startsWith('gen:') ? h('span', { class: 'badge' }, 'randomised') : null),
     h('div', { class: 'question' }, q.q),
     h('div', { class: 'row' }, input, h('button', { class: 'primary', onclick: submit }, 'Submit'),
-      allowHint ? h('button', { onclick: () => { usedHint = true; hintEl.replaceChildren(h('div', { class: 'feedback info' }, '💡 ', q.hint)); } }, 'Hint') : null,
+      allowHint ? h('button', { onclick: () => { usedHint = true; fill(hintEl, h('div', { class: 'feedback info' }, '💡 ', q.hint)); } }, 'Hint') : null,
       h('button', { class: 'ghost', onclick: () => (done ? onNext() : finish(false, 'info')) }, 'Show solution / Skip')),
     hintEl, fb,
   );

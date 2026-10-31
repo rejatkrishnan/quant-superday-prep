@@ -1,4 +1,4 @@
-import { h, shuffle, store, gradeNumeric, richText, formatTime, fmt } from '../lib/util.js';
+import { h, shuffle, store, gradeNumeric, richText, formatTime, fmt, fill, add } from '../lib/util.js';
 import { PROB_QUESTIONS } from '../data/probability.js';
 import { BRAINTEASERS } from '../data/brainteasers.js';
 import { CONCEPTS } from '../data/concepts.js';
@@ -61,12 +61,12 @@ const verdict = (s) => (s >= 80 ? ['Strong hire', 'var(--good)'] : s >= 65 ? ['H
 export function render(root) {
   let timer = null;
   const body = h('div');
-  root.append(h('h1', {}, 'Mock Interview'), h('p', { class: 'sub' },
+  add(root, h('h1', {}, 'Mock Interview'), h('p', { class: 'sub' },
     'Interviewer-led rounds that mimic a real superday: one question at a time, a round clock, follow-up questions, and a scorecard at the end. Speak your reasoning out loud (record yourself if you can) and use the notes box like a whiteboard. Questions are chosen from your weakest material.'), body);
 
   function lobby() {
     const hist = store.state.interviews.slice(-12).reverse();
-    body.replaceChildren(
+    fill(body, 
       h('div', { class: 'card tile', style: { borderColor: 'var(--accent)' }, onclick: () => runSequence(SUPERDAY) },
         h('div', { class: 'ico' }, '🏛️'), h('h3', {}, 'Full superday (4 rounds, ~2.5 h)'),
         h('div', { class: 'muted small' }, SUPERDAY.map((k) => ROUNDS[k].label).join(' → ') + '. Take breaks between rounds like the real thing.')),
@@ -96,7 +96,7 @@ export function render(root) {
 
   function breakScreen(nextKey, cont, res) {
     const [v, c] = verdict(res.score);
-    body.replaceChildren(h('div', { class: 'card' },
+    fill(body, h('div', { class: 'card' },
       h('h2', { style: { marginTop: 0 } }, `${res.label}: ${Math.round(res.score)} — `, h('span', { style: { color: c } }, v)),
       h('p', { class: 'muted' }, `Next up: ${ROUNDS[nextKey].label} (${ROUNDS[nextKey].mins} min). Take a short break, drink some water.`),
       h('button', { class: 'primary', onclick: cont }, 'Start next round →')));
@@ -105,7 +105,7 @@ export function render(root) {
   function superdaySummary(results) {
     const score = results.reduce((a, r) => a + r.score, 0) / results.length;
     const [v, c] = verdict(score);
-    body.replaceChildren(h('div', { class: 'card' },
+    fill(body, h('div', { class: 'card' },
       h('h2', { style: { marginTop: 0 } }, 'Superday result: ', h('span', { style: { color: c } }, `${v} (${Math.round(score)})`)),
       h('table', {}, results.map((r) => { const [rv, rc] = verdict(r.score); return h('tr', {}, h('td', {}, r.label), h('td', {}, `${Math.round(r.score)}`), h('td', { style: { color: rc } }, rv)); })),
       h('p', { class: 'muted small' }, 'Real superdays are usually decided by the weakest round — fix that one first.'),
@@ -120,7 +120,7 @@ export function render(root) {
     const clock = h('b', {});
     const head = h('div', { class: 'row' });
     const stage = h('div');
-    body.replaceChildren(h('div', { class: 'card' }, head, h('hr', { style: { border: 0, borderTop: '1px solid var(--border)', margin: '12px 0' } }), stage));
+    fill(body, h('div', { class: 'card' }, head, h('hr', { style: { border: 0, borderTop: '1px solid var(--border)', margin: '12px 0' } }), stage));
     const tick = () => {
       const left = def.mins * 60 - (Date.now() - t0) / 1000;
       clock.textContent = left >= 0 ? formatTime(left) : `+${formatTime(-left)} over`;
@@ -130,7 +130,7 @@ export function render(root) {
     timer = setInterval(tick, 500); tick();
 
     const ask = (i) => {
-      head.replaceChildren(h('span', {}, `${def.ico} ${prefix ? prefix + ' · ' : ''}${def.label}`), h('span', { class: 'muted' }, `Question ${i + 1}/${items.length}`),
+      fill(head, h('span', {}, `${def.ico} ${prefix ? prefix + ' · ' : ''}${def.label}`), h('span', { class: 'muted' }, `Question ${i + 1}/${items.length}`),
         h('span', { class: 'spacer' }), h('span', {}, '⏱ ', clock),
         h('button', { class: 'ghost', onclick: () => { if (confirm('End this round now? Unanswered questions score 0.')) finish(); } }, 'End round'));
       const it = items[i];
@@ -155,7 +155,7 @@ export function render(root) {
   function scorecard(res, scores, cont) {
     const [v, c] = verdict(res.score);
     const weak = [...new Set(scores.filter((s) => s.score < 60).map((s) => s.topic).filter(Boolean))].map(topicById).filter(Boolean);
-    body.replaceChildren(h('div', { class: 'card' },
+    fill(body, h('div', { class: 'card' },
       h('h2', { style: { marginTop: 0 } }, `${res.label} — score ${Math.round(res.score)}: `, h('span', { style: { color: c } }, v)),
       h('p', { class: 'muted' }, `Time used: ${formatTime(res.secs)} of ${ROUNDS[res.round].mins}:00`),
       h('table', {}, h('tr', {}, h('th', {}, 'Question'), h('th', {}, 'Topic'), h('th', {}, 'Score')),
@@ -191,7 +191,7 @@ function askNumeric(stage, it, done) {
 
   const afterAnswer = (verdictCls, headline) => {
     const follow = isTeaser ? 'Can you generalise your solution, or explain why it is optimal?' : FOLLOWUPS[q.topic];
-    fb.replaceChildren(...[
+    fill(fb, ...[
       h('div', { class: 'feedback ' + verdictCls }, h('b', {}, headline), richText(isTeaser ? `${q.answer}. ${q.sol}` : q.sol)),
       follow ? interviewerBubble(`Follow-up: ${follow}`) : null,
       h('div', { class: 'card', style: { marginTop: '10px' } },
@@ -206,7 +206,7 @@ function askNumeric(stage, it, done) {
   const submit = () => {
     const g = gradeNumeric(input.value, q.ans, q.tol ?? (isTeaser ? 0 : 0.005));
     if (g === 'invalid') return;
-    if (g === 'close') return fb.replaceChildren(h('div', { class: 'feedback close' }, '“Close — can you be more precise?”'));
+    if (g === 'close') return fill(fb, h('div', { class: 'feedback close' }, '“Close — can you be more precise?”'));
     correct = g === 'correct';
     store.recordAttempt(it.m, q.id, correct, { ms: Date.now() - t0, hint: hinted, iv: true });
     afterAnswer(correct ? 'correct' : 'wrong', correct ? '✓ Correct' : `✗ The answer is ${fmt(q.ans)}`);
@@ -216,11 +216,11 @@ function askNumeric(stage, it, done) {
 
   const controls = h('div', { class: 'row', style: { marginTop: '10px' } },
     auto ? [input, h('button', { class: 'primary', onclick: submit }, 'Answer')]
-      : [h('button', { class: 'primary', onclick: () => { fb.replaceChildren(h('div', { class: 'feedback info' }, h('b', {}, 'Answer: '), q.answer, h('div', { class: 'row', style: { marginTop: '8px' } }, h('button', { onclick: () => selfGrade(true) }, '✓ I had it'), h('button', { onclick: () => selfGrade(false) }, '✗ I didn’t')))); } }, 'Done — check answer')],
-    !isTeaser && q.hint ? h('button', { onclick: (e) => { hinted = true; e.target.disabled = true; fb.replaceChildren(interviewerBubble(`Hint: ${q.hint}`)); } }, 'Ask for a hint (−25)') : null,
+      : [h('button', { class: 'primary', onclick: () => { fill(fb, h('div', { class: 'feedback info' }, h('b', {}, 'Answer: '), q.answer, h('div', { class: 'row', style: { marginTop: '8px' } }, h('button', { onclick: () => selfGrade(true) }, '✓ I had it'), h('button', { onclick: () => selfGrade(false) }, '✗ I didn’t')))); } }, 'Done — check answer')],
+    !isTeaser && q.hint ? h('button', { onclick: (e) => { hinted = true; e.target.disabled = true; fill(fb, interviewerBubble(`Hint: ${q.hint}`)); } }, 'Ask for a hint (−25)') : null,
     h('button', { class: 'ghost', onclick: () => { correct = false; store.recordAttempt(it.m, q.id, false, { ms: Date.now() - t0, iv: true }); afterAnswer('wrong', 'Skipped'); } }, 'I don’t know'));
 
-  stage.replaceChildren(interviewerBubble(text), notesBox(), controls, fb);
+  fill(stage, interviewerBubble(text), notesBox(), controls, fb);
   if (auto) input.focus();
 }
 
@@ -230,7 +230,7 @@ function askConcept(stage, it, done) {
   const fb = h('div');
   const reveal = h('button', { class: 'primary', onclick: () => {
     reveal.remove();
-    fb.replaceChildren(...[
+    fill(fb, ...[
       c.f?.length ? h('div', {}, ...c.f.map((x) => interviewerBubble(h('span', { html: `Follow-up: ${x}` })))) : null,
       h('div', { class: 'feedback info' }, h('b', {}, 'Key points a strong answer covers'), h('div', { class: 'rich', html: c.a })),
       h('div', { class: 'row', style: { marginTop: '10px' } }, h('span', { class: 'muted' }, 'Grade yourself:'),
@@ -240,13 +240,13 @@ function askConcept(stage, it, done) {
     ].filter(Boolean));
   } }, 'I’ve answered — show follow-ups & key points');
   const grade = (g, pts) => { store.recordAttempt('concepts', c.id, g, { ms: Date.now() - t0, iv: true }); done(pts); };
-  stage.replaceChildren(interviewerBubble(c.q), notesBox(), h('div', { class: 'row', style: { marginTop: '10px' } }, reveal), fb);
+  fill(stage, interviewerBubble(c.q), notesBox(), h('div', { class: 'row', style: { marginTop: '10px' } }, reveal), fb);
 }
 
 function askCoding(stage, it, done) {
   let best = 0;
   const widget = codingWidget(it.item, { showSolution: false, extra: { iv: true }, onResult: (all, passed, total) => { best = Math.max(best, total ? (100 * passed) / total : 0); status.textContent = `Best so far: ${Math.round(best)}% of tests`; } });
   const status = h('span', { class: 'muted' }, 'Run your tests before submitting.');
-  stage.replaceChildren(interviewerBubble('Please solve this problem. Talk me through your approach and complexity before you code.'), widget,
+  fill(stage, interviewerBubble('Please solve this problem. Talk me through your approach and complexity before you code.'), widget,
     h('div', { class: 'row', style: { marginTop: '10px' } }, h('button', { class: 'primary', onclick: () => done(best) }, 'Submit solution →'), status));
 }

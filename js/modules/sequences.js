@@ -1,4 +1,4 @@
-import { h, randInt, choice, store, gradeNumeric } from '../lib/util.js';
+import { h, randInt, choice, store, gradeNumeric, fill, add } from '../lib/util.js';
 
 const PRIMES = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97];
 const N = 7; // terms generated; the last one is hidden
@@ -43,9 +43,9 @@ const GENERATORS = [
       rule: `Two interleaved sequences: odd positions ${a}, +${d1}…; even positions ${b}, ${d2 >= 0 ? '+' : ''}${d2}….` };
   } },
   { name: 'Alternating operations', diff: 2, gen() {
-    const add = randInt(1, 6), mul = choice([2, 3]), t = [randInt(1, 6)];
-    while (t.length < N) t.push(t.length % 2 === 1 ? t[t.length - 1] + add : t[t.length - 1] * mul);
-    return { terms: t, rule: `Alternate: +${add}, then ×${mul}.` };
+    const inc = randInt(1, 6), mul = choice([2, 3]), t = [randInt(1, 6)];
+    while (t.length < N) t.push(t.length % 2 === 1 ? t[t.length - 1] + inc : t[t.length - 1] * mul);
+    return { terms: t, rule: `Alternate: +${inc}, then ×${mul}.` };
   } },
   { name: 'Growing differences', diff: 2, gen() {
     const a = randInt(1, 20), d0 = randInt(1, 4), dd = randInt(1, 3), t = [a];
@@ -134,7 +134,7 @@ export function render(root) {
   const levelRow = h('div', { class: 'row' });
   const statsEl = h('div', { class: 'muted small' });
   const card = h('div', { class: 'card' });
-  root.append(
+  add(root, 
     h('h1', {}, 'Pattern Recognition'),
     h('p', { class: 'sub' }, 'Find the next term. Procedurally generated — 17 rule families from arithmetic to tribonacci, plus curated "aha" classics. Speed matters: aim for under 20 seconds.'),
     h('div', { class: 'card' }, levelRow, h('div', { style: { marginTop: '8px' } }, statsEl)),
@@ -143,7 +143,7 @@ export function render(root) {
 
   function drawLevels() {
     const opts = [['mixed', 'Mixed'], ['1', 'Easy'], ['2', 'Medium'], ['3', 'Hard'], ['classic', 'Classics only']];
-    levelRow.replaceChildren(h('span', { class: 'muted' }, 'Difficulty:'),
+    fill(levelRow, h('span', { class: 'muted' }, 'Difficulty:'),
       opts.map(([k, l]) => h('button', { class: 'chip' + (level === k ? ' on' : ''), onclick: () => { level = k; drawLevels(); next(); } }, l)));
   }
   function drawStats() {
@@ -159,25 +159,25 @@ export function render(root) {
     const submit = () => {
       if (answered) return next();
       const g = gradeNumeric(input.value, cur.ans, 0);
-      if (g === 'invalid') { fb.replaceChildren(h('div', { class: 'feedback info' }, 'Enter a number.')); return; }
+      if (g === 'invalid') { fill(fb, h('div', { class: 'feedback info' }, 'Enter a number.')); return; }
       answered = true;
       tried++;
       const ok = g === 'correct';
       const secs = ((Date.now() - startedAt) / 1000).toFixed(1);
       if (ok) { solved++; streak++; } else streak = 0;
       store.recordAttempt('sequences', 'gen:' + cur.name, ok, { ms: Date.now() - startedAt });
-      fb.replaceChildren(h('div', { class: 'feedback ' + (ok ? 'correct' : 'wrong') },
+      fill(fb, h('div', { class: 'feedback ' + (ok ? 'correct' : 'wrong') },
         h('b', {}, ok ? `✓ Correct in ${secs}s` : `✗ Answer: ${cur.ans}`), h('div', {}, cur.rule),
         h('div', { class: 'muted small' }, 'Press Enter for the next sequence.')));
       drawStats();
     };
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
-    card.replaceChildren(
+    fill(card, 
       h('div', { class: 'row' }, h('span', { class: 'badge d' + cur.diff }, ['', 'easy', 'medium', 'hard'][cur.diff])),
       h('div', { class: 'seq' }, cur.shown.join(', '), ', ', h('span', { class: 'q' }, '?')),
       h('div', { class: 'row' }, input,
         h('button', { class: 'primary', onclick: submit }, 'Submit'),
-        h('button', { onclick: () => { if (!answered) { answered = true; tried++; streak = 0; store.recordAttempt('sequences', 'gen:' + cur.name, false); drawStats(); fb.replaceChildren(h('div', { class: 'feedback info' }, h('b', {}, `Answer: ${cur.ans}`), h('div', {}, cur.rule))); } else next(); } }, 'Reveal / Next')),
+        h('button', { onclick: () => { if (!answered) { answered = true; tried++; streak = 0; store.recordAttempt('sequences', 'gen:' + cur.name, false); drawStats(); fill(fb, h('div', { class: 'feedback info' }, h('b', {}, `Answer: ${cur.ans}`), h('div', {}, cur.rule))); } else next(); } }, 'Reveal / Next')),
       fb,
       h('details', { style: { marginTop: '14px' } }, h('summary', {}, 'Strategy checklist'),
         h('ul', { class: 'small' },

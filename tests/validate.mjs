@@ -1,5 +1,6 @@
 // Data + logic validation. Run: node tests/validate.mjs
 import assert from 'node:assert/strict';
+import { readFileSync, readdirSync } from 'node:fs';
 import { PROB_QUESTIONS } from '../js/data/probability.js';
 import { BRAINTEASERS } from '../js/data/brainteasers.js';
 import { CODING_PROBLEMS } from '../js/data/coding.js';
@@ -161,6 +162,16 @@ test('interview rounds build full question sets', () => {
       assert.equal(items.length, want, `${k} built ${items.length}/${want}`);
       assert.equal(new Set(items.map((x) => x.m + x.item.id)).size, items.length, `${k} duplicates`);
     }
+  }
+});
+
+test('modules use safe DOM helpers (fill/add/addFirst), not raw replaceChildren/append/prepend', () => {
+  // Raw DOM methods print arrays as "[object HTMLButtonElement]" and null as "null".
+  const dir = new URL('../js/modules/', import.meta.url);
+  for (const f of readdirSync(dir)) {
+    const src = readFileSync(new URL(f, dir), 'utf8');
+    const hit = src.match(/\.(replaceChildren|append|prepend)\(/);
+    assert.ok(!hit, `${f} calls .${hit?.[1]}() directly`);
   }
 });
 

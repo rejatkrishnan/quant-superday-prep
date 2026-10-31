@@ -1,4 +1,4 @@
-import { h, store, sparkline, dayKey, formatTime } from '../lib/util.js';
+import { h, store, sparkline, dayKey, formatTime, add } from '../lib/util.js';
 import { SYLLABUS } from '../data/syllabus.js';
 import { PROB_QUESTIONS } from '../data/probability.js';
 import { BRAINTEASERS } from '../data/brainteasers.js';
@@ -20,7 +20,7 @@ export function render(root) {
   const acc = (m) => { const a = s.attempts.filter((x) => x.m === m); return { n: a.length, ok: a.filter((x) => x.ok).length }; };
   const classic = s.mental.filter((m) => m.key === 'add,div,mul,sub@120');
 
-  root.append(...[
+  add(root, ...[
     h('h1', {}, 'Progress'),
     h('p', { class: 'sub' }, 'Everything you have done, tracked locally: activity, time, accuracy, mastery, interviews and tests.'),
     h('div', { class: 'grid cols-4' },
@@ -104,7 +104,7 @@ function heatmap(act) {
     const t = document.createElementNS(ns, 'text');
     t.setAttribute('x', 0); t.setAttribute('y', (1 + 2 * k) * (cell + gap) + cell - 2);
     t.setAttribute('font-size', '9'); t.setAttribute('fill', 'var(--muted)'); t.textContent = l;
-    svg.append(t);
+    add(svg, t);
   });
   for (let d = new Date(start), i = 0; d <= end; d.setDate(d.getDate() + 1), i++) {
     const k = dayKey(d.getTime()), v = act[k] || 0;
@@ -114,7 +114,7 @@ function heatmap(act) {
     r.setAttribute('fill', v ? `rgba(79,156,249,${0.25 + 0.75 * Math.min(1, v / max)})` : 'var(--panel-2)');
     const title = document.createElementNS(ns, 'title');
     title.textContent = `${k}: ${v} reps, ${Math.round(minutesOn(k))} min`;
-    r.append(title); svg.append(r);
+    add(r, title); add(svg, r);
   }
   return svg;
 }

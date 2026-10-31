@@ -1,4 +1,4 @@
-import { h, store, getParams } from '../lib/util.js';
+import { h, store, getParams, fill, add } from '../lib/util.js';
 import { CODING_PROBLEMS } from '../data/coding.js';
 import { HARNESS } from '../lib/harness.js';
 
@@ -79,20 +79,20 @@ export function render(root) {
   const solvedCount = () => CODING_PROBLEMS.filter((p) => store.state.solved[p.id]).length;
   const header = h('p', { class: 'sub' });
 
-  root.append(
+  add(root, 
     h('h1', {}, 'Coding: Python · NumPy · pandas · ML'),
     header,
     h('div', { class: 'code-layout' }, listEl, pane),
   );
 
   function drawHeader() {
-    header.replaceChildren(`Quant-flavoured coding drills with auto-graded tests, executed in your browser by Pyodide (real CPython + NumPy + pandas). Solved ${solvedCount()}/${CODING_PROBLEMS.length}. `,
+    fill(header, `Quant-flavoured coding drills with auto-graded tests, executed in your browser by Pyodide (real CPython + NumPy + pandas). Solved ${solvedCount()}/${CODING_PROBLEMS.length}. `,
       h('span', { class: 'kbd' }, 'Ctrl'), '+', h('span', { class: 'kbd' }, 'Enter'), ' runs tests; your code autosaves.');
   }
 
   function drawList() {
     const tracks = [...new Set(CODING_PROBLEMS.map((p) => p.track))];
-    listEl.replaceChildren(...tracks.flatMap((t) => [
+    fill(listEl, ...tracks.flatMap((t) => [
       h('div', { class: 'track' }, t),
       ...CODING_PROBLEMS.filter((p) => p.track === t).map((p) =>
         h('div', { class: 'item' + (current?.id === p.id ? ' active' : ''), onclick: () => open(p) },
@@ -104,7 +104,7 @@ export function render(root) {
   function open(p) {
     current = p;
     drawList();
-    pane.replaceChildren(codingWidget(p, { onResult: (all) => { if (all) { drawList(); drawHeader(); } } }));
+    fill(pane, codingWidget(p, { onResult: (all) => { if (all) { drawList(); drawHeader(); } } }));
     pane.querySelector('textarea')?.focus();
   }
 
@@ -157,7 +157,7 @@ export function codingWidget(p, opts = {}) {
   async function run() {
     store.saveCode(p.id, editor.value);
     runBtn.disabled = true;
-    output.replaceChildren();
+    fill(output);
     let res;
     try {
       res = await runCode(editor.value, p.tests, (s) => { status.textContent = s; });
@@ -182,7 +182,7 @@ export function codingWidget(p, opts = {}) {
       opts.onResult?.(false, 0, p.tests.length);
     }
     if (res.stdout) parts.push(h('div', {}, h('div', { class: 'muted small', style: { marginTop: '8px' } }, 'stdout'), h('pre', { class: 'out' }, res.stdout)));
-    output.replaceChildren(...parts);
+    fill(output, ...parts);
   }
 
   const solBox = h('div');
@@ -193,7 +193,7 @@ export function codingWidget(p, opts = {}) {
     editor,
     h('div', { class: 'row', style: { marginTop: '10px' } }, runBtn,
       h('button', { onclick: () => { if (confirm('Reset to starter code? Your code for this problem will be lost.')) { editor.value = p.starter; store.saveCode(p.id, p.starter); } } }, 'Reset'),
-      showSolution ? h('button', { class: 'ghost', onclick: () => solBox.replaceChildren(h('details', { open: true }, h('summary', {}, 'Reference solution'), h('pre', { class: 'out' }, p.solution))) }, 'Show solution') : null,
+      showSolution ? h('button', { class: 'ghost', onclick: () => fill(solBox, h('details', { open: true }, h('summary', {}, 'Reference solution'), h('pre', { class: 'out' }, p.solution))) }, 'Show solution') : null,
       h('span', { class: 'spacer' }), h('span', { class: 'muted small' }, `${p.tests.length} tests`)),
     status, output, solBox);
 }

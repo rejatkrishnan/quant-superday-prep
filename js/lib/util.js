@@ -18,6 +18,13 @@ export function h(tag, attrs = {}, ...children) {
   return el;
 }
 
+// Safe versions of replaceChildren/append/prepend: flatten nested arrays and drop null/undefined/false,
+// which the native methods would otherwise render as "[object …]" or "null".
+const kidsOf = (kids) => kids.flat(Infinity).filter((k) => k !== null && k !== undefined && k !== false);
+export function fill(el, ...kids) { el.replaceChildren(...kidsOf(kids)); return el; }
+export function add(el, ...kids) { el.append(...kidsOf(kids)); return el; }
+export function addFirst(el, ...kids) { el.prepend(...kidsOf(kids)); return el; }
+
 export function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); return el; }
 
 // ---------- Random ----------

@@ -1,4 +1,4 @@
-import { h, shuffle, store, gradeNumeric, richText, formatTime, getParams } from '../lib/util.js';
+import { h, shuffle, store, gradeNumeric, richText, formatTime, getParams, fill, add } from '../lib/util.js';
 import { BRAINTEASERS } from '../data/brainteasers.js';
 
 export function render(root) {
@@ -7,7 +7,7 @@ export function render(root) {
   const controls = h('div', { class: 'card' });
   const card = h('div', { class: 'card' });
   const list = h('div', { class: 'card' });
-  root.append(
+  add(root, 
     h('h1', {}, 'Brainteasers & Logic Puzzles'),
     h('p', { class: 'sub' }, 'Classic interview teasers. Think out loud as if an interviewer is listening: state assumptions, try small cases, look for invariants and symmetry. Numeric ones auto-grade; others you self-grade after revealing.'),
     controls, card, list,
@@ -15,7 +15,7 @@ export function render(root) {
 
   function drawControls() {
     const due = store.dueReview('brainteasers').length;
-    controls.replaceChildren(h('div', { class: 'row' },
+    fill(controls, h('div', { class: 'row' },
       h('span', { class: 'muted' }, 'Difficulty:'),
       [['All', 'All'], ['1', 'Easy'], ['2', 'Medium'], ['3', 'Hard'], ['review', `Review due (${due})`]].map(([k, l]) =>
         h('button', { class: 'chip' + (diff === k ? ' on' : ''), onclick: () => { diff = k; rebuild(); } }, l))));
@@ -32,7 +32,7 @@ export function render(root) {
   }
 
   function drawList(pool) {
-    list.replaceChildren(h('h3', { style: { marginTop: 0 } }, 'All puzzles in this set'),
+    fill(list, h('h3', { style: { marginTop: 0 } }, 'All puzzles in this set'),
       h('table', {}, h('tr', {}, h('th', {}, 'Puzzle'), h('th', {}, 'Level'), h('th', {}, 'Status')),
         pool.map((b) => {
           const r = store.state.review['brainteasers:' + b.id];
@@ -44,7 +44,7 @@ export function render(root) {
 
   function next() {
     const b = queue.shift();
-    if (!b) { card.replaceChildren(h('p', {}, 'All done for this filter! 🎉'), h('button', { class: 'primary', onclick: rebuild }, 'Shuffle again')); return; }
+    if (!b) { fill(card, h('p', {}, 'All done for this filter! 🎉'), h('button', { class: 'primary', onclick: rebuild }, 'Shuffle again')); return; }
     showTeaser(card, b, () => { drawControls(); drawList(BRAINTEASERS.filter((x) => diff === 'All' || x.diff === Number(diff))); }, next);
   }
 
@@ -66,7 +66,7 @@ export function showTeaser(card, b, onResult, onNext, opts = {}) {
     onResult?.(ok);
   };
   const reveal = (verdict) => {
-    fb.replaceChildren(h('div', { class: 'feedback ' + (verdict || 'info') },
+    fill(fb, h('div', { class: 'feedback ' + (verdict || 'info') },
       verdict === 'correct' ? h('b', {}, '✓ Correct! ') : verdict === 'wrong' ? h('b', {}, '✗ Not quite. ') : null,
       h('div', {}, h('b', {}, 'Answer: '), b.answer),
       h('div', { style: { marginTop: '6px' } }, richText(b.sol)),
@@ -92,11 +92,11 @@ export function showTeaser(card, b, onResult, onNext, opts = {}) {
     };
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
     parts.push(h('div', { class: 'row' }, input, h('button', { class: 'primary', onclick: submit }, 'Submit'), h('button', { class: 'ghost', onclick: () => reveal() }, 'Reveal')));
-    card.replaceChildren(...parts, fb);
+    fill(card, ...parts, fb);
     input.focus();
   } else {
     parts.push(h('div', { class: 'row' }, h('button', { class: 'primary', onclick: () => reveal() }, 'Reveal answer')),
       h('p', { class: 'muted small' }, 'Work it out (paper or out loud), then reveal and grade yourself honestly.'));
-    card.replaceChildren(...parts, fb);
+    fill(card, ...parts, fb);
   }
 }
