@@ -1,0 +1,12 @@
+{
+  "name": "quant-superday-prep",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Practice arena for quant research superday interviews",
+  "scripts": {
+    "test": "node tests/validate.mjs && node tests/export_coding.mjs > /tmp/qp_coding.json && python3 tests/run_coding_tests.py /tmp/qp_coding.json",
+    "serve": "python3 -m http.server 8000"
+  },
+  "license": "MIT"
+}
