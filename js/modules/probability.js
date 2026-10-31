@@ -1,4 +1,4 @@
-import { h, randInt, choice, shuffle, comb, fracStr, fmt, store, gradeNumeric, richText } from '../lib/util.js';
+import { h, randInt, choice, shuffle, comb, fracStr, fmt, store, gradeNumeric, richText, getParams } from '../lib/util.js';
 import { PROB_QUESTIONS } from '../data/probability.js';
 
 // ---------- Randomised generators (infinite practice) ----------
@@ -73,16 +73,17 @@ export function makeGenerated() {
 const TOPICS = [...new Set(PROB_QUESTIONS.map((q) => q.topic))];
 
 export function render(root) {
-  let mode = 'bank';
-  let topic = 'All', diff = 'All';
+  const params = getParams();
+  let mode = ['bank', 'review', 'gen'].includes(params.mode) ? params.mode : 'bank';
+  let topic = TOPICS.includes(params.topic) ? params.topic : 'All', diff = 'All';
   let queue = [];
   let session = { ok: 0, n: 0 };
 
   const controls = h('div', { class: 'card' });
   const card = h('div', { class: 'card' });
   root.append(
-    h('h1', {}, 'Probability & Statistics'),
-    h('p', { class: 'sub' }, `${PROB_QUESTIONS.length} curated interview questions + unlimited randomised problems. Answers accept fractions and expressions: 1/6, 0.1667, 16.67%, 1-(5/6)^4, sqrt(2/pi).`),
+    h('h1', {}, 'Probability, Statistics & Math'),
+    h('p', { class: 'sub' }, `${PROB_QUESTIONS.length} curated interview questions (probability, EV, Bayes, combinatorics, stochastic processes, statistics, linear algebra, calculus, pricing) + unlimited randomised problems. Answers accept fractions and expressions: 1/6, 0.1667, 16.67%, 1-(5/6)^4, sqrt(2/pi).`),
     controls, card,
   );
 
@@ -92,7 +93,7 @@ export function render(root) {
     controls.replaceChildren(
       h('div', { class: 'row' },
         h('span', { class: 'muted' }, 'Mode:'),
-        [['bank', 'Question bank'], ['review', `Review missed (${due})`], ['gen', 'Infinite random']].map(([k, l]) =>
+        [['bank', 'Question bank'], ['review', `Review due (${due})`], ['gen', 'Infinite random']].map(([k, l]) =>
           h('button', { class: 'chip' + (mode === k ? ' on' : ''), onclick: () => { mode = k; rebuild(); } }, l))),
       mode === 'bank' ? h('div', { class: 'row', style: { marginTop: '10px' } },
         h('span', { class: 'muted' }, 'Topic:'),
@@ -124,7 +125,7 @@ export function render(root) {
     if (mode === 'gen') q = makeGenerated();
     else q = queue.shift();
     if (!q) {
-      card.replaceChildren(h('p', {}, mode === 'review' ? '🎉 Nothing due for review. Missed questions come back here on a spaced schedule.' : 'You\'ve gone through every question for this filter.'),
+      card.replaceChildren(h('p', {}, mode === 'review' ? '🎉 Nothing due for review. Questions come back here on a spaced-repetition schedule.' : 'You\'ve gone through every question for this filter.'),
         h('button', { class: 'primary', onclick: rebuild }, 'Start over'));
       return;
     }
@@ -135,7 +136,7 @@ export function render(root) {
 }
 
 // Reusable question UI (also used by the mock superday).
-export function showQuestion(card, q, onResult, onNext, { module = 'probability', allowHint = true } = {}) {
+export function showQuestion(card, q, onResult, onNext, { module = 'probability', allowHint = true, extra = {} } = {}) {
   let done = false, usedHint = false;
   const t0 = Date.now();
   const input = h('input', { type: 'text', class: 'answer', placeholder: 'your answer', autocomplete: 'off' });
@@ -144,7 +145,7 @@ export function showQuestion(card, q, onResult, onNext, { module = 'probability'
 
   const finish = (ok, verdict) => {
     done = true;
-    store.recordAttempt(module, q.id, ok, { ms: Date.now() - t0, hint: usedHint });
+    store.recordAttempt(module, q.id, ok, { ms: Date.now() - t0, hint: usedHint, ...extra });
     onResult?.(ok);
     fb.replaceChildren(h('div', { class: 'feedback ' + verdict },
       h('b', {}, verdict === 'correct' ? `✓ Correct (${((Date.now() - t0) / 1000).toFixed(0)}s)` : verdict === 'info' ? 'Solution' : `✗ Not quite — answer ≈ ${fmt(q.ans)}`),

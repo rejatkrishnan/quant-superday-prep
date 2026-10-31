@@ -170,3 +170,7 @@ pre.out { background: #0a0e14; border: 1px solid var(--border); border-radius: 8
 .spark { display: block; }
 details summary { cursor: pointer; color: var(--accent); }
 .kbd { font-family: var(--mono); font-size: 12px; border: 1px solid var(--border); border-bottom-width: 2px; padding: 0 5px; border-radius: 4px; color: var(--muted); }
+
+.nav-badge { float: right; background: var(--warn); color: #000; font-size: 11px; font-weight: 700; border-radius: 999px; padding: 0 7px; line-height: 18px; }
+input[type=date] { background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font: inherit; color-scheme: dark; }
+a.btn { color: var(--text); }

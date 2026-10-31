@@ -141,29 +141,51 @@ const KEY = 'quantprep.v1';
 function load() {
   try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; }
 }
-let state = load();
-state.attempts ||= [];
-state.mental ||= [];
-state.solved ||= {};
-state.review ||= {};
-state.markets ||= [];
-state.mocks ||= [];
+function normalize(st) {
+  st.attempts ||= [];
+  st.mental ||= [];
+  st.solved ||= {};
+  st.review ||= {};
+  st.markets ||= [];
+  st.mocks ||= [];
+  st.interviews ||= [];
+  st.time ||= {};
+  st.daily ||= {};
+  st.settings ||= { intensity: 'standard', interviewDate: '' };
+  return st;
+}
+let state = normalize(load());
 
 function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* storage full or disabled */ } }
 
+// Local calendar day, e.g. "2026-10-31".
+export function dayKey(ts = Date.now()) {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Spaced-repetition intervals (days) per Leitner box.
+const BOX_DAYS = [0, 1, 3, 7, 16, 35];
+
 export const store = {
   get state() { return state; },
-  recordAttempt(module, id, correct, extra = {}) {
-    state.attempts.push({ m: module, id, ok: !!correct, t: Date.now(), ...extra });
-    if (state.attempts.length > 5000) state.attempts = state.attempts.slice(-5000);
-    // Spaced repetition for curated items: missed -> due soon, correct -> push out.
+  // grade: true/false, or 'again' | 'good' | 'easy' for self-graded cards.
+  recordAttempt(module, id, grade, extra = {}) {
+    const correct = grade === true || grade === 'good' || grade === 'easy';
+    state.attempts.push({ m: module, id, ok: correct, t: Date.now(), ...extra });
+    if (state.attempts.length > 20000) state.attempts = state.attempts.slice(-20000);
+    // Spaced repetition for curated items: missed -> due again now, correct -> pushed further out each time.
     if (id && !String(id).startsWith('gen:')) {
       const key = `${module}:${id}`;
-      const r = state.review[key] || { box: 0, due: 0 };
-      r.box = correct ? Math.min(r.box + 1, 5) : 0;
-      const days = [0, 1, 3, 7, 16, 35][r.box];
-      r.due = Date.now() + days * 864e5;
-      r.missed = !correct || r.missed && r.box < 2;
+      const prev = state.review[key];
+      const r = prev || { box: 0, due: 0 };
+      if (!correct) r.box = 0;
+      else if (!prev) r.box = grade === 'easy' ? 3 : 2; // right first time: skip the short intervals
+      else r.box = Math.min(r.box + (grade === 'easy' ? 2 : 1), 5);
+      r.due = Date.now() + BOX_DAYS[r.box] * 864e5;
+      r.missed = !correct;
+      r.n = (r.n || 0) + 1;
+      r.last = Date.now();
       state.review[key] = r;
     }
     save();
@@ -171,20 +193,37 @@ export const store = {
   recordMental(entry) { state.mental.push({ ...entry, t: Date.now() }); save(); },
   recordMarket(entry) { state.markets.push({ ...entry, t: Date.now() }); save(); },
   recordMock(entry) { state.mocks.push({ ...entry, t: Date.now() }); save(); },
+  recordInterview(entry) { state.interviews.push({ ...entry, t: Date.now() }); save(); },
   markSolved(id) { state.solved[id] = Date.now(); save(); },
+  // Ids of items whose review is due. module omitted -> "module:id" keys across all modules.
   dueReview(module) {
     const now = Date.now();
-    return Object.entries(state.review)
-      .filter(([k, r]) => k.startsWith(module + ':') && r.missed && r.due <= now)
-      .map(([k]) => k.slice(module.length + 1));
+    const due = Object.entries(state.review).filter(([, r]) => r.due <= now).map(([k]) => k);
+    if (!module) return due;
+    return due.filter((k) => k.startsWith(module + ':')).map((k) => k.slice(module.length + 1));
   },
   seen(module, id) { return !!state.review[`${module}:${id}`]; },
+  reviewState(module, id) { return state.review[`${module}:${id}`]; },
+  addTime(module, sec) {
+    const d = dayKey();
+    state.time[d] ||= {};
+    state.time[d][module] = (state.time[d][module] || 0) + sec;
+    save();
+  },
+  setSetting(k, v) { state.settings[k] = v; save(); },
+  setDaily(day, plan) { state.daily[day] = plan; save(); },
   exportJSON() { return JSON.stringify(state, null, 2); },
-  importJSON(text) { state = JSON.parse(text); save(); },
-  reset() { state = { attempts: [], mental: [], solved: {}, review: {}, markets: [], mocks: [] }; save(); },
+  importJSON(text) { state = normalize(JSON.parse(text)); save(); },
+  reset() { state = normalize({}); save(); },
   saveCode(id, code) { state.code ||= {}; state.code[id] = code; save(); },
   loadCode(id) { return state.code?.[id]; },
 };
+
+// Query params from the hash route, e.g. "#/probability?topic=Calculus".
+export function getParams() {
+  const q = location.hash.split('?')[1] || '';
+  return Object.fromEntries(new URLSearchParams(q));
+}
 
 // ---------- Timer ----------
 export function formatTime(sec) {

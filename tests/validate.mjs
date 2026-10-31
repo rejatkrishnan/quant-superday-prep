@@ -8,6 +8,12 @@ import { parseAnswer, gradeNumeric } from '../js/lib/util.js';
 import { makeSequence } from '../js/modules/sequences.js';
 import { makeGenerated } from '../js/modules/probability.js';
 import { makeProblem } from '../js/modules/mentalmath.js';
+import { CONCEPTS } from '../js/data/concepts.js';
+import { SYLLABUS, ALL_TOPICS } from '../js/data/syllabus.js';
+import { sourceItems, topicOfItem, topicStats, readiness } from '../js/lib/mastery.js';
+import { getPlan, taskProgress } from '../js/modules/today.js';
+import { ROUNDS, buildRound } from '../js/modules/interview.js';
+import { store } from '../js/lib/util.js';
 
 let passed = 0;
 function test(name, fn) {
@@ -96,6 +102,65 @@ test('mental math generator', () => {
     assert.ok(p.text && Number.isFinite(p.answer), JSON.stringify(p));
     // Answers must be typeable exactly (no repeating decimals)
     assert.ok(Math.abs(Number(String(p.answer)) - p.answer) < 1e-9 && String(p.answer).length <= 10, JSON.stringify(p));
+  }
+});
+
+test('concept cards', () => {
+  unique(CONCEPTS.map((c) => c.id), 'concepts');
+  for (const c of CONCEPTS) {
+    assert.ok(c.topic && c.q && c.a && [1, 2, 3].includes(c.diff), `${c.id} missing fields`);
+    if (c.f) assert.ok(Array.isArray(c.f) && c.f.every((x) => typeof x === 'string'), `${c.id} follow-ups`);
+  }
+});
+
+test('syllabus maps every item exactly once and every source is non-empty', () => {
+  unique(ALL_TOPICS.map((t) => t.id), 'syllabus topics');
+  const seen = new Map();
+  for (const t of ALL_TOPICS) for (const src of t.sources) {
+    const items = sourceItems(src);
+    if (['probability', 'concepts', 'coding', 'brainteasers'].includes(src.m)) assert.ok(items.length, `${t.id}: empty source ${JSON.stringify(src)}`);
+    else assert.ok(src.target > 0, `${t.id}: activity source needs a target`);
+    for (const it of items) {
+      const k = `${it.m}:${it.id}`;
+      assert.ok(!seen.has(k), `${k} in both ${seen.get(k)} and ${t.id}`);
+      seen.set(k, t.id);
+    }
+  }
+  for (const q of PROB_QUESTIONS) assert.ok(topicOfItem('probability', q.id), `probability ${q.id} (${q.topic}) not in syllabus`);
+  for (const c of CONCEPTS) assert.ok(topicOfItem('concepts', c.id), `concept ${c.id} (${c.topic}) not in syllabus`);
+  for (const p of CODING_PROBLEMS) assert.ok(topicOfItem('coding', p.id), `coding ${p.id} (${p.track}) not in syllabus`);
+  for (const b of BRAINTEASERS) assert.ok(topicOfItem('brainteasers', b.id), `teaser ${b.id} not in syllabus`);
+});
+
+test('mastery, plan and progress tracking', () => {
+  store.reset();
+  for (const t of ALL_TOPICS) assert.equal(topicStats(t).mastery, 0, t.id);
+  const plan = getPlan();
+  assert.ok(plan.tasks.length >= 6, 'plan too short');
+  assert.ok(plan.tasks.some((t) => t.kind === 'interview'), 'first plan should schedule a mock interview');
+  const focus = plan.tasks.find((t) => t.kind === 'focus');
+  assert.ok(focus, 'plan needs a focus topic');
+  // Answer an item from the focus topic: progress and mastery must move.
+  const topic = ALL_TOPICS.find((t) => t.id === focus.topic);
+  const item = topic.sources.flatMap(sourceItems)[0];
+  store.recordAttempt(item.m, item.id, true);
+  assert.equal(taskProgress(focus), 1);
+  assert.ok(topicStats(topic).mastery > 0);
+  assert.ok(readiness() > 0);
+  // A miss puts the item straight into review.
+  store.recordAttempt(item.m, item.id, false);
+  assert.ok(store.dueReview().includes(`${item.m}:${item.id}`));
+  store.reset();
+});
+
+test('interview rounds build full question sets', () => {
+  for (const [k, r] of Object.entries(ROUNDS)) {
+    const want = r.steps.reduce((a, s) => a + s[2], 0);
+    for (let i = 0; i < 20; i++) {
+      const items = buildRound(k);
+      assert.equal(items.length, want, `${k} built ${items.length}/${want}`);
+      assert.equal(new Set(items.map((x) => x.m + x.item.id)).size, items.length, `${k} duplicates`);
+    }
   }
 });
 

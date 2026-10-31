@@ -1,4 +1,4 @@
-import { h, store } from '../lib/util.js';
+import { h, store, getParams } from '../lib/util.js';
 import { CODING_PROBLEMS } from '../data/coding.js';
 import { HARNESS } from '../lib/harness.js';
 
@@ -72,6 +72,7 @@ async function runCode(code, tests, status) {
 
 // ---------- UI ----------
 export function render(root) {
+  const params = getParams();
   let current = null;
   const listEl = h('div', { class: 'card problem-list' });
   const pane = h('div');
@@ -79,7 +80,7 @@ export function render(root) {
   const header = h('p', { class: 'sub' });
 
   root.append(
-    h('h1', {}, 'Coding: Python · NumPy · pandas'),
+    h('h1', {}, 'Coding: Python · NumPy · pandas · ML'),
     header,
     h('div', { class: 'code-layout' }, listEl, pane),
   );
@@ -103,85 +104,96 @@ export function render(root) {
   function open(p) {
     current = p;
     drawList();
-    const editor = h('textarea', { class: 'code', spellcheck: 'false', autocapitalize: 'off', autocomplete: 'off' });
-    editor.value = store.loadCode(p.id) ?? p.starter;
-    const status = h('div', { class: 'muted small', style: { marginTop: '8px' } });
-    const output = h('div');
-    let saveT;
-    editor.addEventListener('input', () => { clearTimeout(saveT); saveT = setTimeout(() => store.saveCode(p.id, editor.value), 400); });
-    editor.addEventListener('keydown', (e) => {
-      if (e.key === 'Tab') {
-        e.preventDefault();
-        const { selectionStart: s, selectionEnd: en, value } = editor;
-        if (e.shiftKey) {
-          const lineStart = value.lastIndexOf('\n', s - 1) + 1;
-          if (value.slice(lineStart, lineStart + 4) === '    ') {
-            editor.value = value.slice(0, lineStart) + value.slice(lineStart + 4);
-            editor.selectionStart = editor.selectionEnd = Math.max(lineStart, s - 4);
-          }
-        } else {
-          editor.value = value.slice(0, s) + '    ' + value.slice(en);
-          editor.selectionStart = editor.selectionEnd = s + 4;
-        }
-        editor.dispatchEvent(new Event('input'));
-      } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault(); run();
-      } else if (e.key === 'Enter') {
-        // keep indentation; add a level after a colon
-        e.preventDefault();
-        const { selectionStart: s, value } = editor;
-        const line = value.slice(value.lastIndexOf('\n', s - 1) + 1, s);
-        let indent = line.match(/^\s*/)[0];
-        if (/:\s*$/.test(line)) indent += '    ';
-        editor.setRangeText('\n' + indent, s, editor.selectionEnd, 'end');
-        editor.dispatchEvent(new Event('input'));
-      }
-    });
-
-    const runBtn = h('button', { class: 'primary', onclick: run }, '▶ Run tests');
-    async function run() {
-      store.saveCode(p.id, editor.value);
-      runBtn.disabled = true;
-      output.replaceChildren();
-      let res;
-      try {
-        res = await runCode(editor.value, p.tests, (s) => { status.textContent = s; });
-      } catch (err) {
-        res = { error: String(err.message || err) };
-      }
-      runBtn.disabled = false;
-      status.textContent = '';
-      const parts = [];
-      if (res.error) parts.push(h('div', { class: 'feedback wrong' }, h('b', {}, 'Error: '), h('pre', { class: 'out' }, res.error)));
-      if (res.results?.length) {
-        const passed = res.results.filter((r) => r.ok).length;
-        const all = passed === res.results.length;
-        parts.push(h('div', { class: 'feedback ' + (all ? 'correct' : 'wrong') },
-          h('b', {}, all ? `✓ All ${passed} tests passed!` : `${passed}/${res.results.length} tests passed`),
-          ...res.results.map((r) => h('div', { class: 'test-row' }, h('span', { class: r.ok ? 'ok' : 'no' }, r.ok ? '✓' : '✗'),
-            h('span', {}, r.name), r.ok ? h('span', { class: 'muted' }, `${r.ms} ms`) : h('span', { class: 'muted' }, r.msg)))));
-        store.recordAttempt('coding', p.id, all);
-        if (all) { store.markSolved(p.id); drawList(); drawHeader(); }
-      }
-      if (res.stdout) parts.push(h('div', {}, h('div', { class: 'muted small', style: { marginTop: '8px' } }, 'stdout'), h('pre', { class: 'out' }, res.stdout)));
-      output.replaceChildren(...parts);
-    }
-
-    const solBox = h('div');
-    pane.replaceChildren(h('div', { class: 'card' },
-      h('div', { class: 'row' }, h('h2', { style: { margin: 0 } }, p.title), h('span', { class: 'badge' }, p.track),
-        h('span', { class: 'badge d' + p.diff }, ['', 'easy', 'medium', 'hard'][p.diff])),
-      h('p', { class: 'rich', html: p.prompt }),
-      editor,
-      h('div', { class: 'row', style: { marginTop: '10px' } }, runBtn,
-        h('button', { onclick: () => { if (confirm('Reset to starter code? Your code for this problem will be lost.')) { editor.value = p.starter; store.saveCode(p.id, p.starter); } } }, 'Reset'),
-        h('button', { class: 'ghost', onclick: () => solBox.replaceChildren(h('details', { open: true }, h('summary', {}, 'Reference solution'), h('pre', { class: 'out' }, p.solution))) }, 'Show solution'),
-        h('span', { class: 'spacer' }), h('span', { class: 'muted small' }, `${p.tests.length} tests`)),
-      status, output, solBox));
-    editor.focus();
+    pane.replaceChildren(codingWidget(p, { onResult: (all) => { if (all) { drawList(); drawHeader(); } } }));
+    pane.querySelector('textarea')?.focus();
   }
 
   drawHeader();
-  const firstUnsolved = CODING_PROBLEMS.find((p) => !store.state.solved[p.id]) || CODING_PROBLEMS[0];
-  open(firstUnsolved);
+  const byId = CODING_PROBLEMS.find((p) => p.id === params.id);
+  const inTrack = CODING_PROBLEMS.filter((p) => !params.track || p.track === params.track);
+  open(byId || inTrack.find((p) => !store.state.solved[p.id]) || inTrack[0] || CODING_PROBLEMS[0]);
+}
+
+// Self-contained problem card: prompt, editor, run button, results.
+// opts.onResult(allPassed, passed, total) after each run; opts.showSolution (default true); opts.extra for recorded attempts.
+export function codingWidget(p, opts = {}) {
+  const { showSolution = true } = opts;
+  const editor = h('textarea', { class: 'code', spellcheck: 'false', autocapitalize: 'off', autocomplete: 'off' });
+  editor.value = store.loadCode(p.id) ?? p.starter;
+  const status = h('div', { class: 'muted small', style: { marginTop: '8px' } });
+  const output = h('div');
+  let saveT;
+  editor.addEventListener('input', () => { clearTimeout(saveT); saveT = setTimeout(() => store.saveCode(p.id, editor.value), 400); });
+  editor.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const { selectionStart: s, selectionEnd: en, value } = editor;
+      if (e.shiftKey) {
+        const lineStart = value.lastIndexOf('\n', s - 1) + 1;
+        if (value.slice(lineStart, lineStart + 4) === '    ') {
+          editor.value = value.slice(0, lineStart) + value.slice(lineStart + 4);
+          editor.selectionStart = editor.selectionEnd = Math.max(lineStart, s - 4);
+        }
+      } else {
+        editor.value = value.slice(0, s) + '    ' + value.slice(en);
+        editor.selectionStart = editor.selectionEnd = s + 4;
+      }
+      editor.dispatchEvent(new Event('input'));
+    } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault(); run();
+    } else if (e.key === 'Enter') {
+      // keep indentation; add a level after a colon
+      e.preventDefault();
+      const { selectionStart: s, value } = editor;
+      const line = value.slice(value.lastIndexOf('\n', s - 1) + 1, s);
+      let indent = line.match(/^\s*/)[0];
+      if (/:\s*$/.test(line)) indent += '    ';
+      editor.setRangeText('\n' + indent, s, editor.selectionEnd, 'end');
+      editor.dispatchEvent(new Event('input'));
+    }
+  });
+
+  const runBtn = h('button', { class: 'primary', onclick: run }, '▶ Run tests');
+  async function run() {
+    store.saveCode(p.id, editor.value);
+    runBtn.disabled = true;
+    output.replaceChildren();
+    let res;
+    try {
+      res = await runCode(editor.value, p.tests, (s) => { status.textContent = s; });
+    } catch (err) {
+      res = { error: String(err.message || err) };
+    }
+    runBtn.disabled = false;
+    status.textContent = '';
+    const parts = [];
+    if (res.error) parts.push(h('div', { class: 'feedback wrong' }, h('b', {}, 'Error: '), h('pre', { class: 'out' }, res.error)));
+    if (res.results?.length) {
+      const passed = res.results.filter((r) => r.ok).length;
+      const all = passed === res.results.length;
+      parts.push(h('div', { class: 'feedback ' + (all ? 'correct' : 'wrong') },
+        h('b', {}, all ? `✓ All ${passed} tests passed!` : `${passed}/${res.results.length} tests passed`),
+        ...res.results.map((r) => h('div', { class: 'test-row' }, h('span', { class: r.ok ? 'ok' : 'no' }, r.ok ? '✓' : '✗'),
+          h('span', {}, r.name), r.ok ? h('span', { class: 'muted' }, `${r.ms} ms`) : h('span', { class: 'muted' }, r.msg)))));
+      store.recordAttempt('coding', p.id, all, opts.extra || {});
+      if (all) store.markSolved(p.id);
+      opts.onResult?.(all, passed, res.results.length);
+    } else {
+      opts.onResult?.(false, 0, p.tests.length);
+    }
+    if (res.stdout) parts.push(h('div', {}, h('div', { class: 'muted small', style: { marginTop: '8px' } }, 'stdout'), h('pre', { class: 'out' }, res.stdout)));
+    output.replaceChildren(...parts);
+  }
+
+  const solBox = h('div');
+  return h('div', { class: 'card' },
+    h('div', { class: 'row' }, h('h2', { style: { margin: 0 } }, p.title), h('span', { class: 'badge' }, p.track),
+      h('span', { class: 'badge d' + p.diff }, ['', 'easy', 'medium', 'hard'][p.diff])),
+    h('p', { class: 'rich', html: p.prompt }),
+    editor,
+    h('div', { class: 'row', style: { marginTop: '10px' } }, runBtn,
+      h('button', { onclick: () => { if (confirm('Reset to starter code? Your code for this problem will be lost.')) { editor.value = p.starter; store.saveCode(p.id, p.starter); } } }, 'Reset'),
+      showSolution ? h('button', { class: 'ghost', onclick: () => solBox.replaceChildren(h('details', { open: true }, h('summary', {}, 'Reference solution'), h('pre', { class: 'out' }, p.solution))) }, 'Show solution') : null,
+      h('span', { class: 'spacer' }), h('span', { class: 'muted small' }, `${p.tests.length} tests`)),
+    status, output, solBox);
 }

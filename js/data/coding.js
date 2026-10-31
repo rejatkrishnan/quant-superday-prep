@@ -695,4 +695,224 @@ def bucket_counts(returns):
       ['counts', py`assert bucket_counts(pd.Series([-0.05, -0.02, -0.01, 0.0, 0.01, 0.03, 0.04])) == [2, 2, 1, 2]`],
       ['empty bucket', py`assert bucket_counts(pd.Series([0.01, 0.015])) == [0, 0, 2, 0]`],
     ] },
+  // ======================= ML & STATS =======================
+  { id: 'ml-logreg', track: 'ML & Stats', diff: 2, title: 'Logistic Regression from Scratch',
+    prompt: 'Fit logistic regression by batch gradient descent on the mean log-loss. <code>X</code> is n × p (no intercept column), <code>y</code> is 0/1. Return a 1-D array <code>[b0, b1, …, bp]</code> (intercept first). Use the gradient <code>Xᵀ(σ(Xb) − y)/n</code>.',
+    starter: py`import numpy as np
+
+def fit_logistic(X, y, lr=0.5, n_iter=3000):
+    pass
+`,
+    solution: py`import numpy as np
+
+def fit_logistic(X, y, lr=0.5, n_iter=3000):
+    X = np.column_stack([np.ones(len(X)), np.asarray(X, dtype=float)])
+    y = np.asarray(y, dtype=float)
+    b = np.zeros(X.shape[1])
+    for _ in range(n_iter):
+        p = 1 / (1 + np.exp(-X @ b))
+        b -= lr * X.T @ (p - y) / len(y)
+    return b
+`,
+    tests: [
+      ['recovers coefficients', py`
+rng = np.random.default_rng(0)
+X = rng.normal(size=(20000, 2))
+true = np.array([0.5, 1.0, -2.0])
+p = 1 / (1 + np.exp(-(true[0] + X @ true[1:])))
+y = (rng.random(20000) < p).astype(float)
+b = fit_logistic(X, y)
+assert len(b) == 3, b
+assert np.allclose(b, true, atol=0.1), b`],
+      ['separates classes', py`
+rng = np.random.default_rng(1)
+X = np.vstack([rng.normal(-2, 1, (200, 1)), rng.normal(2, 1, (200, 1))])
+y = np.r_[np.zeros(200), np.ones(200)]
+b = fit_logistic(X, y)
+pred = (b[0] + X[:, 0] * b[1]) > 0
+assert (pred == y).mean() > 0.95`],
+    ] },
+
+  { id: 'ml-kmeans', track: 'ML & Stats', diff: 2, title: 'k-Means Clustering',
+    prompt: 'Implement Lloyd’s k-means. Start from the given initial centroids <code>init</code> (k × d), alternate assignment and update until assignments stop changing (or <code>n_iter</code> rounds). Return <code>(centroids, labels)</code>. If a cluster becomes empty, keep its previous centroid.',
+    starter: py`import numpy as np
+
+def kmeans(X, init, n_iter=100):
+    pass
+`,
+    solution: py`import numpy as np
+
+def kmeans(X, init, n_iter=100):
+    X = np.asarray(X, dtype=float)
+    C = np.array(init, dtype=float)
+    labels = None
+    for _ in range(n_iter):
+        d = ((X[:, None, :] - C[None, :, :]) ** 2).sum(-1)
+        new = d.argmin(1)
+        if labels is not None and np.array_equal(new, labels):
+            break
+        labels = new
+        for k in range(len(C)):
+            if np.any(labels == k):
+                C[k] = X[labels == k].mean(0)
+    return C, labels
+`,
+    tests: [
+      ['three blobs', py`
+rng = np.random.default_rng(2)
+centers = np.array([[0, 0], [10, 0], [0, 10]], dtype=float)
+X = np.vstack([c + rng.normal(size=(100, 2)) for c in centers])
+C, labels = kmeans(X, X[[0, 100, 200]] + 3)
+order = np.argsort(C[:, 0] + 2 * C[:, 1])
+assert np.allclose(C[order], centers[np.argsort(centers[:, 0] + 2 * centers[:, 1])], atol=0.5), C
+assert len(set(labels[:100])) == 1 and len(set(labels[100:200])) == 1`],
+      ['labels shape', py`
+C, labels = kmeans(np.array([[0.], [1.], [10.], [11.]]), np.array([[0.], [10.]]))
+assert list(labels) == [0, 0, 1, 1] and np.allclose(C.ravel(), [0.5, 10.5])`],
+    ] },
+
+  { id: 'st-ewma-vol', track: 'ML & Stats', diff: 2, title: 'EWMA Volatility',
+    prompt: 'Compute RiskMetrics-style EWMA variance of returns <code>r</code>: <code>s2[0] = r[0]²</code> and <code>s2[t] = λ·s2[t−1] + (1 − λ)·r[t]²</code>. Return the volatility <code>√s2</code> as a NumPy array.',
+    starter: py`import numpy as np
+
+def ewma_vol(r, lam=0.94):
+    pass
+`,
+    solution: py`import numpy as np
+
+def ewma_vol(r, lam=0.94):
+    r = np.asarray(r, dtype=float)
+    s2 = np.empty_like(r)
+    s2[0] = r[0] ** 2
+    for t in range(1, len(r)):
+        s2[t] = lam * s2[t - 1] + (1 - lam) * r[t] ** 2
+    return np.sqrt(s2)
+`,
+    tests: [
+      ['small', py`assert np.allclose(ewma_vol([0.1, 0.0], lam=0.5), [0.1, np.sqrt(0.005)])`],
+      ['vs pandas ewm', py`
+r = np.random.default_rng(3).normal(0, 0.01, 500)
+want = np.sqrt(pd.Series(r ** 2).ewm(alpha=0.06, adjust=False).mean().values)
+assert np.allclose(ewma_vol(r, 0.94), want)`],
+    ] },
+
+  { id: 'st-ar1', track: 'ML & Stats', diff: 1, title: 'Fit an AR(1) & Half-Life',
+    prompt: 'Given a series <code>x</code>, estimate <code>x[t] = c + φ·x[t−1] + ε</code> by OLS. Return <code>(c, phi, half_life)</code> where half-life = <code>ln(0.5)/ln(φ)</code> (assume 0 &lt; φ &lt; 1).',
+    starter: py`import numpy as np
+
+def fit_ar1(x):
+    pass
+`,
+    solution: py`import numpy as np
+
+def fit_ar1(x):
+    x = np.asarray(x, dtype=float)
+    A = np.column_stack([np.ones(len(x) - 1), x[:-1]])
+    c, phi = np.linalg.lstsq(A, x[1:], rcond=None)[0]
+    return float(c), float(phi), float(np.log(0.5) / np.log(phi))
+`,
+    tests: [
+      ['simulated', py`
+rng = np.random.default_rng(4)
+x = np.zeros(20000)
+for t in range(1, len(x)):
+    x[t] = 1.0 + 0.8 * x[t - 1] + rng.normal()
+c, phi, hl = fit_ar1(x)
+assert abs(phi - 0.8) < 0.02 and abs(c - 1.0) < 0.1, (c, phi)
+assert abs(hl - np.log(0.5) / np.log(phi)) < 1e-9`],
+    ] },
+
+  { id: 'st-bootstrap', track: 'ML & Stats', diff: 2, title: 'Bootstrap Confidence Interval',
+    prompt: 'Return a percentile bootstrap <code>(lo, hi)</code> confidence interval for the MEAN of <code>x</code>: draw <code>n_boot</code> resamples of size n with replacement using <code>np.random.default_rng(seed)</code>, compute each mean, and take the <code>alpha/2</code> and <code>1 − alpha/2</code> quantiles. Vectorise (one call to <code>rng.integers</code>).',
+    starter: py`import numpy as np
+
+def bootstrap_ci(x, n_boot=5000, alpha=0.05, seed=0):
+    pass
+`,
+    solution: py`import numpy as np
+
+def bootstrap_ci(x, n_boot=5000, alpha=0.05, seed=0):
+    x = np.asarray(x, dtype=float)
+    idx = np.random.default_rng(seed).integers(0, len(x), size=(n_boot, len(x)))
+    means = x[idx].mean(axis=1)
+    lo, hi = np.quantile(means, [alpha / 2, 1 - alpha / 2])
+    return float(lo), float(hi)
+`,
+    tests: [
+      ['close to normal theory', py`
+x = np.random.default_rng(5).normal(10, 2, 400)
+lo, hi = bootstrap_ci(x)
+se = x.std(ddof=1) / np.sqrt(len(x))
+assert abs(lo - (x.mean() - 1.96 * se)) < 0.05 and abs(hi - (x.mean() + 1.96 * se)) < 0.05, (lo, hi)`],
+      ['reproducible', py`
+x = np.arange(50.)
+assert bootstrap_ci(x, seed=7) == bootstrap_ci(x, seed=7)`],
+      ['wider for higher confidence', py`
+x = np.random.default_rng(6).normal(size=100)
+a = bootstrap_ci(x, alpha=0.1); b = bootstrap_ci(x, alpha=0.01)
+assert b[0] < a[0] and b[1] > a[1]`],
+    ] },
+
+  { id: 'st-pca', track: 'ML & Stats', diff: 2, title: 'PCA via SVD',
+    prompt: 'Return <code>(components, ratio)</code>: the top <code>k</code> principal components of <code>X</code> (n × d) as a k × d array of unit vectors (rows), and the fraction of total variance each explains. Centre the columns first; use <code>np.linalg.svd</code>.',
+    starter: py`import numpy as np
+
+def pca(X, k):
+    pass
+`,
+    solution: py`import numpy as np
+
+def pca(X, k):
+    X = np.asarray(X, dtype=float)
+    Xc = X - X.mean(axis=0)
+    _, s, Vt = np.linalg.svd(Xc, full_matrices=False)
+    var = s ** 2
+    return Vt[:k], var[:k] / var.sum()
+`,
+    tests: [
+      ['dominant direction', py`
+rng = np.random.default_rng(8)
+t = rng.normal(size=2000)
+X = np.column_stack([t, t, 0.1 * rng.normal(size=2000)])
+comps, ratio = pca(X, 1)
+assert comps.shape == (1, 3)
+assert np.allclose(np.abs(comps[0]), [1 / np.sqrt(2), 1 / np.sqrt(2), 0], atol=0.02), comps
+assert ratio[0] > 0.99`],
+      ['orthonormal & eigenvalues', py`
+X = np.random.default_rng(9).normal(size=(500, 4)) @ np.random.default_rng(10).normal(size=(4, 4))
+comps, ratio = pca(X, 4)
+assert np.allclose(comps @ comps.T, np.eye(4), atol=1e-8)
+ev = np.sort(np.linalg.eigvalsh(np.cov(X, rowvar=False)))[::-1]
+assert np.allclose(ratio, ev / ev.sum())`],
+    ] },
+
+  { id: 'ml-walk-forward', track: 'ML & Stats', diff: 2, title: 'Walk-Forward Splits',
+    prompt: 'Time-series cross-validation. Return a list of <code>(train_idx, test_idx)</code> NumPy arrays for <code>n</code> observations: the final <code>n_splits × test_size</code> observations form consecutive test blocks (in order); each training set is every index before the test block minus a <code>gap</code> of observations immediately preceding it (an embargo).',
+    starter: py`import numpy as np
+
+def walk_forward(n, n_splits, test_size, gap=0):
+    pass
+`,
+    solution: py`import numpy as np
+
+def walk_forward(n, n_splits, test_size, gap=0):
+    out = []
+    start0 = n - n_splits * test_size
+    for i in range(n_splits):
+        s = start0 + i * test_size
+        out.append((np.arange(0, max(0, s - gap)), np.arange(s, s + test_size)))
+    return out
+`,
+    tests: [
+      ['basic', py`
+sp = walk_forward(10, 2, 2)
+assert [list(a) for a, b in sp] == [[0, 1, 2, 3, 4, 5], [0, 1, 2, 3, 4, 5, 6, 7]]
+assert [list(b) for a, b in sp] == [[6, 7], [8, 9]]`],
+      ['gap', py`
+sp = walk_forward(10, 2, 2, gap=1)
+assert list(sp[0][0]) == [0, 1, 2, 3, 4] and list(sp[1][0]) == [0, 1, 2, 3, 4, 5, 6]`],
+      ['no leakage', py`
+for tr, te in walk_forward(100, 5, 10, gap=3):
+    assert tr.max() < te.min() - 3`],
+    ] },
 ];

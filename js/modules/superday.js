@@ -7,7 +7,7 @@ import { makeProblem } from './mentalmath.js';
 
 const FORMATS = {
   quick: { label: 'Quick round · 15 min', minutes: 15, mental: 8, seq: 3, prob: 4, teaser: 2 },
-  full: { label: 'Full superday · 35 min', minutes: 35, mental: 12, seq: 5, prob: 8, teaser: 4 },
+  full: { label: 'Full assessment · 35 min', minutes: 35, mental: 12, seq: 5, prob: 8, teaser: 4 },
   prob: { label: 'Probability gauntlet · 25 min', minutes: 25, mental: 0, seq: 0, prob: 12, teaser: 3 },
 };
 
@@ -39,8 +39,8 @@ export function render(root) {
   let timer = null;
   const body = h('div');
   root.append(
-    h('h1', {}, 'Mock Superday'),
-    h('p', { class: 'sub' }, 'A timed, mixed exam across mental math, sequences, probability and brainteasers. No hints and no feedback until the end — just like the real thing. Skipped questions count as wrong.'),
+    h('h1', {}, 'Written Test (Online Assessment)'),
+    h('p', { class: 'sub' }, 'A timed, mixed written exam across mental math, sequences, probability and brainteasers — like the online assessments many firms send before interviews. No hints and no feedback until the end. Skipped questions count as wrong. For spoken, interviewer-style rounds use Mock Interview.'),
     body,
   );
 

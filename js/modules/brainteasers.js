@@ -1,8 +1,8 @@
-import { h, shuffle, store, gradeNumeric, richText, formatTime } from '../lib/util.js';
+import { h, shuffle, store, gradeNumeric, richText, formatTime, getParams } from '../lib/util.js';
 import { BRAINTEASERS } from '../data/brainteasers.js';
 
 export function render(root) {
-  let diff = 'All';
+  let diff = getParams().mode === 'review' ? 'review' : 'All';
   let queue = [];
   const controls = h('div', { class: 'card' });
   const card = h('div', { class: 'card' });
@@ -17,7 +17,7 @@ export function render(root) {
     const due = store.dueReview('brainteasers').length;
     controls.replaceChildren(h('div', { class: 'row' },
       h('span', { class: 'muted' }, 'Difficulty:'),
-      [['All', 'All'], ['1', 'Easy'], ['2', 'Medium'], ['3', 'Hard'], ['review', `Review missed (${due})`]].map(([k, l]) =>
+      [['All', 'All'], ['1', 'Easy'], ['2', 'Medium'], ['3', 'Hard'], ['review', `Review due (${due})`]].map(([k, l]) =>
         h('button', { class: 'chip' + (diff === k ? ' on' : ''), onclick: () => { diff = k; rebuild(); } }, l))));
   }
 
@@ -51,7 +51,7 @@ export function render(root) {
   rebuild();
 }
 
-export function showTeaser(card, b, onResult, onNext) {
+export function showTeaser(card, b, onResult, onNext, opts = {}) {
   let done = false;
   const t0 = Date.now();
   const fb = h('div');
@@ -62,7 +62,7 @@ export function showTeaser(card, b, onResult, onNext) {
     if (done) return;
     done = true;
     clearInterval(iv);
-    store.recordAttempt('brainteasers', b.id, ok, { ms: Date.now() - t0 });
+    store.recordAttempt('brainteasers', b.id, ok, { ms: Date.now() - t0, ...(opts.extra || {}) });
     onResult?.(ok);
   };
   const reveal = (verdict) => {
