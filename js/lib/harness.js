@@ -1,17 +1,24 @@
 // Python test harness. Used by the browser (Pyodide) and by CI (tests/run_coding_tests.py) so both run identical code.
 export const HARNESS = String.raw`
-import json, sys, io, time, traceback
+import json, sys, io, time, traceback, warnings
+
+# pandas 2.2 warns that pyarrow will be required in 3.0; irrelevant here and noisy in the console.
+warnings.filterwarnings("ignore", message=r"(?s).*[Pp]yarrow", category=DeprecationWarning)
+
+_qp_src = []
 
 def _qp_where(tb):
     for fr in reversed(traceback.extract_tb(tb)):
         if fr.filename == "<your code>":
-            return f" (your code, line {fr.lineno}: {(fr.line or '').strip()})"
+            line = _qp_src[fr.lineno - 1].strip() if 0 < fr.lineno <= len(_qp_src) else ""
+            return f" (your code, line {fr.lineno}: {line})"
     return ""
 
 def _qp_run(user_code, tests_json):
     import numpy as np
     import pandas as pd
     tests = json.loads(tests_json)
+    _qp_src[:] = user_code.splitlines()
     out = io.StringIO()
     old = sys.stdout
     sys.stdout = out

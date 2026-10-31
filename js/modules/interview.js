@@ -104,11 +104,13 @@ export function render(root) {
 
   function superdaySummary(results) {
     const score = results.reduce((a, r) => a + r.score, 0) / results.length;
-    const [v, c] = verdict(score);
+    const weakest = Math.min(...results.map((r) => r.score));
+    // Like a real hiring committee: one failed round sinks the day regardless of the average.
+    const [v, c] = weakest < 50 ? ['No hire', 'var(--bad)'] : verdict(Math.min(score, weakest + 15));
     fill(body, h('div', { class: 'card' },
       h('h2', { style: { marginTop: 0 } }, 'Superday result: ', h('span', { style: { color: c } }, `${v} (${Math.round(score)})`)),
       h('table', {}, results.map((r) => { const [rv, rc] = verdict(r.score); return h('tr', {}, h('td', {}, r.label), h('td', {}, `${Math.round(r.score)}`), h('td', { style: { color: rc } }, rv)); })),
-      h('p', { class: 'muted small' }, 'Real superdays are usually decided by the weakest round — fix that one first.'),
+      h('p', { class: 'muted small' }, weakest < 50 ? `Your weakest round scored ${Math.round(weakest)}. One failed round usually means no offer, even with a strong average — fix that round first.` : 'Real superdays are usually decided by the weakest round — the verdict is capped at 15 points above it.'),
       h('button', { class: 'primary', onclick: lobby }, 'Back to lobby')));
   }
 

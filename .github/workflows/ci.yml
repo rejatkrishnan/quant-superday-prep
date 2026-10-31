@@ -16,6 +16,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install numpy pandas
+      - name: Check index.html cache-busting stamps are up to date
+        run: node tools/stamp.mjs --check
       - name: Validate question banks, parser and generators
         run: node tests/validate.mjs
       - name: Check every coding problem's reference solution passes its tests
