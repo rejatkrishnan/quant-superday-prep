@@ -915,4 +915,179 @@ assert list(sp[0][0]) == [0, 1, 2, 3, 4] and list(sp[1][0]) == [0, 1, 2, 3, 4, 5
 for tr, te in walk_forward(100, 5, 10, gap=3):
     assert tr.max() < te.min() - 3`],
     ] },
+  // ======================= EXPANSION =======================
+  { id: 'st-implied-vol', track: 'ML & Stats', diff: 3, title: 'Implied Volatility Solver',
+    prompt: 'Given a market call price, find the Black–Scholes volatility that reproduces it (to 1e-6). Use bisection on σ ∈ [1e-4, 5] or Newton with vega. Return a float. Use <code>math.erf</code> for the normal CDF.',
+    starter: py`import math
+
+def bs_call(S, K, r, sigma, T):
+    pass
+
+def implied_vol(price, S, K, r, T):
+    pass
+`,
+    solution: py`import math
+
+def _N(x):
+    return 0.5 * (1 + math.erf(x / math.sqrt(2)))
+
+def bs_call(S, K, r, sigma, T):
+    d1 = (math.log(S / K) + (r + sigma * sigma / 2) * T) / (sigma * math.sqrt(T))
+    d2 = d1 - sigma * math.sqrt(T)
+    return S * _N(d1) - K * math.exp(-r * T) * _N(d2)
+
+def implied_vol(price, S, K, r, T):
+    lo, hi = 1e-4, 5.0
+    for _ in range(200):
+        mid = (lo + hi) / 2
+        if bs_call(S, K, r, mid, T) < price:
+            lo = mid
+        else:
+            hi = mid
+    return (lo + hi) / 2
+`,
+    tests: [
+      ['bs price', py`assert abs(bs_call(100, 100, 0.0, 0.2, 1.0) - 7.965567) < 1e-4, bs_call(100, 100, 0.0, 0.2, 1.0)`],
+      ['round trip', py`
+for sig in [0.05, 0.2, 0.6, 1.5]:
+    for K in [80, 100, 130]:
+        p = bs_call(100, K, 0.03, sig, 0.5)
+        assert abs(implied_vol(p, 100, K, 0.03, 0.5) - sig) < 1e-5, (sig, K)`],
+    ] },
+
+  { id: 'st-ridge', track: 'ML & Stats', diff: 2, title: 'Ridge Regression (closed form)',
+    prompt: 'Fit ridge regression <code>min ‖y − a − Xb‖² + λ‖b‖²</code> (the intercept is NOT penalised). Centre X and y, solve <code>(XᵀX + λI)b = Xᵀy</code>, then recover the intercept. Return <code>[a, b1, …, bp]</code>.',
+    starter: py`import numpy as np
+
+def ridge(X, y, lam):
+    pass
+`,
+    solution: py`import numpy as np
+
+def ridge(X, y, lam):
+    X = np.asarray(X, dtype=float); y = np.asarray(y, dtype=float)
+    xm, ym = X.mean(0), y.mean()
+    Xc, yc = X - xm, y - ym
+    b = np.linalg.solve(Xc.T @ Xc + lam * np.eye(X.shape[1]), Xc.T @ yc)
+    return np.r_[ym - xm @ b, b]
+`,
+    tests: [
+      ['lam=0 is OLS', py`
+rng = np.random.default_rng(11)
+X = rng.normal(size=(200, 3)); y = 2 + X @ [1., -1., 0.5] + rng.normal(size=200) * 0.1
+ols = np.linalg.lstsq(np.column_stack([np.ones(200), X]), y, rcond=None)[0]
+assert np.allclose(ridge(X, y, 0.0), ols)`],
+      ['shrinks', py`
+rng = np.random.default_rng(12)
+X = rng.normal(size=(100, 3)); y = X @ [3., 3., 3.] + rng.normal(size=100)
+assert np.linalg.norm(ridge(X, y, 100.0)[1:]) < np.linalg.norm(ridge(X, y, 1.0)[1:])`],
+      ['intercept unpenalised', py`
+X = np.random.default_rng(13).normal(size=(50, 2)); y = np.full(50, 7.0)
+out = ridge(X, y, 1e6)
+assert abs(out[0] - 7) < 1e-6 and np.allclose(out[1:], 0, atol=1e-6)`],
+    ] },
+
+  { id: 'st-oos-r2', track: 'ML & Stats', diff: 2, title: 'Out-of-Sample R²',
+    prompt: 'Evaluate a return forecast against the historical-mean benchmark: for each t ≥ <code>min_train</code>, the benchmark forecast is the mean of <code>r[:t]</code> (expanding window). Return <code>1 − Σ(r − f)² / Σ(r − bench)²</code> over those t, where <code>f</code> is the model forecast array.',
+    starter: py`import numpy as np
+
+def oos_r2(r, f, min_train=20):
+    pass
+`,
+    solution: py`import numpy as np
+
+def oos_r2(r, f, min_train=20):
+    r = np.asarray(r, dtype=float); f = np.asarray(f, dtype=float)
+    bench = (np.cumsum(r) / np.arange(1, len(r) + 1))[min_train - 1:-1]
+    rr, ff = r[min_train:], f[min_train:]
+    return float(1 - ((rr - ff) ** 2).sum() / ((rr - bench) ** 2).sum())
+`,
+    tests: [
+      ['perfect forecast', py`
+r = np.random.default_rng(14).normal(size=100)
+assert abs(oos_r2(r, r) - 1) < 1e-12`],
+      ['benchmark itself', py`
+r = np.random.default_rng(15).normal(size=60)
+f = np.r_[np.zeros(20), [r[:t].mean() for t in range(20, 60)]]
+assert abs(oos_r2(r, f)) < 1e-12`],
+      ['bad forecast negative', py`
+r = np.random.default_rng(16).normal(size=200)
+assert oos_r2(r, -3 * np.sign(r)) < 0`],
+    ] },
+
+  { id: 'np-winsorize', track: 'NumPy', diff: 1, title: 'Winsorise Columns',
+    prompt: 'Clip each column of a 2-D array to its own [<code>q</code>, <code>1 − q</code>] quantiles (computed with <code>np.quantile</code>, ignoring NaNs). NaNs stay NaN. No loops over rows.',
+    starter: py`import numpy as np
+
+def winsorize(X, q=0.01):
+    pass
+`,
+    solution: py`import numpy as np
+
+def winsorize(X, q=0.01):
+    X = np.asarray(X, dtype=float)
+    lo = np.nanquantile(X, q, axis=0)
+    hi = np.nanquantile(X, 1 - q, axis=0)
+    return np.clip(X, lo, hi)
+`,
+    tests: [
+      ['clips per column', py`
+X = np.column_stack([np.arange(101.), 10 * np.arange(101.)])
+W = winsorize(X, 0.1)
+assert W[:, 0].min() == 10 and W[:, 0].max() == 90
+assert W[:, 1].min() == 100 and W[:, 1].max() == 900`],
+      ['keeps NaN', py`
+X = np.array([[1.], [np.nan], [3.], [100.]])
+W = winsorize(X, 0.25)
+assert np.isnan(W[1, 0]) and W[3, 0] < 100`],
+    ] },
+
+  { id: 'np-mc-ruin', track: 'NumPy', diff: 2, title: 'Simulate Gambler’s Ruin',
+    prompt: 'Estimate by vectorised simulation the probability that a ±1 random walk starting at <code>start</code> hits <code>top</code> before 0, with up-probability <code>p</code>. Simulate <code>n_paths</code> paths in parallel (step all alive paths together) using <code>np.random.default_rng(seed)</code>. Return the fraction that hit <code>top</code>.',
+    starter: py`import numpy as np
+
+def ruin_sim(start, top, p=0.5, n_paths=20000, seed=0):
+    pass
+`,
+    solution: py`import numpy as np
+
+def ruin_sim(start, top, p=0.5, n_paths=20000, seed=0):
+    rng = np.random.default_rng(seed)
+    x = np.full(n_paths, start)
+    alive = np.ones(n_paths, dtype=bool)
+    while alive.any():
+        steps = np.where(rng.random(alive.sum()) < p, 1, -1)
+        x[alive] += steps
+        alive &= (x > 0) & (x < top)
+    return float((x >= top).mean())
+`,
+    tests: [
+      ['fair game', py`assert abs(ruin_sim(3, 10) - 0.3) < 0.02`],
+      ['biased game', py`
+q = 0.4 / 0.6
+exact = (1 - q ** 2) / (1 - q ** 8)
+assert abs(ruin_sim(2, 8, p=0.6) - exact) < 0.02, exact`],
+    ] },
+
+  { id: 'pd-xs-rank', track: 'pandas', diff: 2, title: 'Cross-Sectional Signal Ranking',
+    prompt: 'Given a long DataFrame with columns <code>date, ticker, signal</code>, add a column <code>score</code>: within each date, the percentile rank of <code>signal</code> (<code>rank(pct=True)</code>) minus 0.5, so scores are centred around 0 each day. Return the frame with its original row order.',
+    starter: py`import pandas as pd
+
+def xs_score(df):
+    pass
+`,
+    solution: py`import pandas as pd
+
+def xs_score(df):
+    out = df.copy()
+    out["score"] = out.groupby("date")["signal"].rank(pct=True) - 0.5
+    return out
+`,
+    tests: [
+      ['values', py`
+df = pd.DataFrame({"date": ["d1"] * 4 + ["d2"] * 2, "ticker": list("ABCDAB"), "signal": [3., 1., 4., 2., 10., -1.]})
+out = xs_score(df)
+assert out.score.tolist() == [0.25, -0.25, 0.5, 0.0, 0.5, 0.0], out.score.tolist()
+assert list(out.index) == list(df.index) and "score" not in df.columns`],
+    ] },
 ];
